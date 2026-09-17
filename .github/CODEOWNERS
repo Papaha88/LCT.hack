@@ -1,6 +1,5 @@
 # Впишите GitHub-логины разработчиков вместо плейсхолдеров.
 # Тогда GitHub будет автоматически запрашивать нужного человека в ревьюеры PR.
 
-/backend/   @backend-dev-login
-/frontend/  @frontend-dev-login
-/mobile/    @android-dev-login
+/backend/   @kirill-github-login
+/mobile/    @danya-github-login
