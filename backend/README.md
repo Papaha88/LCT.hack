@@ -22,7 +22,18 @@ ruff check .
 
 Это же прогоняется в CI (`.github/workflows/backend-ci.yml`) на каждый push/PR, если менялись файлы в `backend/`.
 
-## Docker
+## Docker Compose (бэкенд + база данных одной командой)
+
+Не нужно ставить Postgres руками — Compose поднимает и бэкенд, и базу в связке:
+
+```bash
+cd backend
+docker compose up --build
+```
+
+Бэкенд будет на http://127.0.0.1:8000, база — на порту 5432 (логин/пароль/база: `app`/`app`/`app`, см. `docker-compose.yml`). Остановить: `docker compose down` (данные останутся в volume `db_data`, для полной очистки — `docker compose down -v`).
+
+Собрать и запустить только сам бэкенд без Compose (без базы):
 
 ```bash
 docker build -t backend .
@@ -41,6 +52,7 @@ backend/
 ├── requirements.txt       # runtime-зависимости
 ├── requirements-dev.txt   # pytest, ruff
 ├── Dockerfile
+├── docker-compose.yml     # бэкенд + Postgres одной командой
 └── pyproject.toml         # конфиг ruff
 ```
 
