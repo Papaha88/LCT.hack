@@ -1,20 +1,12 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const App());
-}
+import 'app.dart';
+import 'models/game_state.dart';
 
-class App extends StatelessWidget {
-  const App({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'LCT Hackathon',
-      home: Scaffold(
-        appBar: AppBar(title: const Text('LCT Hackathon')),
-        body: const Center(child: Text('Mobile app работает')),
-      ),
-    );
-  }
+/// Точка входа: грузим сейв и запускаем приложение.
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final gameState = GameState();
+  await gameState.init();
+  runApp(FinnyApp(gameState: gameState));
 }
