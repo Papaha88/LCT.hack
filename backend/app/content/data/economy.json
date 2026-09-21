@@ -1,0 +1,118 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-09-21",
+  "currency": { "code": "coin", "title": "монетка", "emoji": "🪙" },
+  "income": {
+    "base_income_per_period": 50,
+    "daily_login_bonus": 15,
+    "course_income_multiplier": 2,
+    "max_education_level": 5,
+    "sources": [
+      { "id": "period_income", "title": "Доход за период", "explain": "Начисляется при переходе к новому периоду." },
+      { "id": "daily_bonus", "title": "Ежедневный бонус", "explain": "Первый вход за день." },
+      { "id": "quest_reward", "title": "Награда за задание", "explain": "Монетки за выполненное задание." },
+      { "id": "deposit_interest", "title": "Проценты по вкладу", "explain": "Начисляются при смене игрового года." },
+      { "id": "item_resale", "title": "Продажа украшения", "explain": "Возврат 70% от цены." }
+    ]
+  },
+  "period": {
+    "periods_per_year": 12,
+    "demo_mode_periods": 5,
+    "demo_mode_skips_real_time": true
+  },
+  "budget": {
+    "step": 5,
+    "alt_step": 10,
+    "allow_unallocated": true,
+    "unallocated_hint": "У тебя осталось {amount} монеток. Может, добавим их в копилку на мечту?",
+    "editable_until_confirmed": true,
+    "directions": [
+      {
+        "id": "mandatory",
+        "title": "Обязательные расходы",
+        "emoji": "🍎",
+        "categories": ["food", "hygiene", "equipment"],
+        "explain": "Еда и уход — без них питомцу плохо."
+      },
+      {
+        "id": "optional",
+        "title": "Необязательные расходы",
+        "emoji": "🎮",
+        "categories": ["toys", "decor"],
+        "explain": "Желаемое: можно купить позже и это не ошибка."
+      },
+      {
+        "id": "education",
+        "title": "Обучение",
+        "emoji": "📚",
+        "categories": ["education"],
+        "explain": "Вложение в себя: увеличивает будущий доход."
+      },
+      {
+        "id": "savings",
+        "title": "Накопления",
+        "emoji": "🐷",
+        "categories": [],
+        "explain": "Монетки, отложенные на мечту."
+      }
+    ]
+  },
+  "deposit": {
+    "annual_rate": 0.2,
+    "accrual": "on_year_change",
+    "min_amount": 5,
+    "quick_amounts": [10, 20, 50],
+    "withdraw_requires_confirmation": true,
+    "explain": "Проценты начисляются на сумму, которая лежит на вкладе в момент смены игрового года."
+  },
+  "pet": {
+    "stats": [
+      { "id": "satiety", "title": "Сытость", "emoji": "🍽", "max": 100, "decay_per_period": 20, "low_threshold": 40 },
+      { "id": "happiness", "title": "Счастье", "emoji": "😊", "max": 100, "decay_per_period": 15, "low_threshold": 30 },
+      { "id": "cleanliness", "title": "Чистота", "emoji": "🧼", "max": 100, "decay_per_period": 15, "low_threshold": 30 }
+    ],
+    "stages": [
+      { "id": "baby", "title": "Малыш", "order": 1, "min_xp": 0 },
+      { "id": "teen", "title": "Подросток", "order": 2, "min_xp": 100 },
+      { "id": "adult", "title": "Взрослый", "order": 3, "min_xp": 250 }
+    ],
+    "moods": [
+      { "id": "excited", "title": "В восторге", "emoji": "🤩", "min_average_stat": 85 },
+      { "id": "happy", "title": "Доволен", "emoji": "😊", "min_average_stat": 60 },
+      { "id": "neutral", "title": "Спокоен", "emoji": "🙂", "min_average_stat": 40 },
+      { "id": "sad", "title": "Грустит", "emoji": "😢", "min_average_stat": 0 }
+    ],
+    "xp_rules": [
+      { "id": "quest_completed", "xp": 10, "explain": "За выполненное задание." },
+      { "id": "mandatory_covered", "xp": 10, "explain": "Обязательные расходы закрыты за период." },
+      { "id": "plan_matches_fact", "xp": 15, "explain": "Факт совпал с планом (отклонение не больше 10%)." },
+      { "id": "savings_topped_up", "xp": 5, "explain": "В копилку добавлены монетки." }
+    ],
+    "purchase_blocks": [
+      {
+        "id": "hungry_block",
+        "when_stat": "satiety",
+        "lte": 40,
+        "blocked_categories": ["toys", "decor", "education"],
+        "message": "{pet_name} слишком голоден, чтобы играть или учиться! Сначала накорми его."
+      }
+    ]
+  },
+  "rules": {
+    "negative_balance_forbidden": true,
+    "purchase_requires_confirmation": true,
+    "savings_withdraw_requires_confirmation": true,
+    "plan_editable_until_confirmed": true,
+    "quests_reward_coins": true,
+    "failure_creates_recovery_task": true,
+    "resale_rate": 0.7
+  },
+  "messages": {
+    "not_enough_coins": "Ой, монеток пока не хватает! Чтобы купить {item}, нужно ещё {missing} 🪙.",
+    "not_enough_coins_followup": "Не переживай! Можно выполнить задание и заработать их прямо сейчас — или отложить покупку на следующий период.",
+    "hungry": "Я проголодался!",
+    "half_goal": "Ура, мы накопили половину на цель!",
+    "quest_waiting": "Давай выполним задание и получим монетки?",
+    "daily_bonus": "{pet_name} рад тебя видеть! +15 монет"
+  }
+}
