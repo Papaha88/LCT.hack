@@ -1,68 +1,131 @@
 import 'package:flutter/material.dart';
 
-/// Яркая «детская» тема: крупные скругления, тёплый фон, большие кнопки.
+/// Тема «Финни» по макетам Figma: светлая и тёмная.
+/// Фиолетовый #5552D9, мягкие карточки, круглые кнопки.
 class KidsTheme {
-  static ThemeData light() {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF6C63FF),
-      secondary: const Color(0xFFFFB020),
-      surface: Colors.white,
-    );
+  static const Color primary = Color(0xFF5552D9);
+  static const Color secondary = Color(0xFF7A76F0);
+  static const Color surface = Color(0xFFF7F7FF);
+  static const Color onSurface = Color(0xFF1B1D4D);
+  static const Color onSurfaceVariant = Color(0xFF5B5C7B);
+  static const Color success = Color(0xFF43C465);
+  static const Color warning = Color(0xFFFFB547);
+  static const Color outline = Color(0xFFE3E4F2);
 
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: scheme,
-      scaffoldBackgroundColor: const Color(0xFFFFF6EC),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        backgroundColor: Color(0xFFFFF6EC),
+  // Тёмная палитра (глубокий фиолетово-синий).
+  static const Color darkPrimary = Color(0xFF8B88FF);
+  static const Color darkSurface = Color(0xFF151735);
+  static const Color darkCard = Color(0xFF23264F);
+  static const Color darkOnSurface = Color(0xFFF2F3FF);
+  static const Color darkOutline = Color(0xFF3A3D6B);
+
+  static ThemeData light() {
+    final scheme = ColorScheme.light(
+      primary: primary,
+      secondary: secondary,
+      surface: surface,
+      onSurface: onSurface,
+      onSurfaceVariant: onSurfaceVariant,
+      outline: outline,
+      tertiary: success,
+    );
+    return _build(scheme, cardColor: Colors.white);
+  }
+
+  static ThemeData dark() {
+    final scheme = ColorScheme.dark(
+      primary: darkPrimary,
+      secondary: secondary,
+      surface: darkSurface,
+      onSurface: darkOnSurface,
+      onSurfaceVariant: const Color(0xFFB9BBE0),
+      outline: darkOutline,
+      tertiary: success,
+    );
+    return _build(scheme, cardColor: darkCard);
+  }
+
+  static ThemeData _build(ColorScheme scheme, {required Color cardColor}) {
+    final isDark = scheme.brightness == Brightness.dark;
+    final fill = isDark ? darkCard : Colors.white;
+    final appBarBg = isDark ? darkCard : primary;
+
+    return ThemeData.from(colorScheme: scheme).copyWith(
+      scaffoldBackgroundColor: scheme.surface,
+      appBarTheme: AppBarTheme(
+        backgroundColor: appBarBg,
+        foregroundColor: Colors.white,
         elevation: 0,
-        titleTextStyle: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF3A334E),
+        centerTitle: true,
+        titleTextStyle: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
         ),
       ),
-      cardTheme: CardTheme(
-        color: Colors.white,
-        elevation: 2,
+      cardTheme: CardThemeData(
+        color: cardColor,
+        shadowColor: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+        elevation: 4,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size.fromHeight(58),
-          textStyle:
-              const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: scheme.outline, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: fill,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: scheme.primary, width: 1.6),
+        ),
+        hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isDark ? darkPrimary : primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          minimumSize: const Size.fromHeight(54),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
-      textTheme: const TextTheme(
-        headlineSmall: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF3A334E),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: isDark ? darkPrimary : primary,
+          textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        titleLarge: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF3A334E),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: warning,
+        linearTrackColor: scheme.outline,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isDark ? darkPrimary : onSurface,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
         ),
-        bodyLarge: TextStyle(fontSize: 17, color: Color(0xFF3A334E)),
-        bodyMedium: TextStyle(fontSize: 15, color: Color(0xFF5A5470)),
       ),
     );
   }

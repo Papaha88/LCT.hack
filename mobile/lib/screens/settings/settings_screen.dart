@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../models/pet.dart';
 
 /// Настройки: профиль, сброс прогресса, о приложении.
 /// Открываются шестерёнкой в AppBar (не занимают вкладку навигации).

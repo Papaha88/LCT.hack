@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../data/shop_data.dart';
+import '../../models/pet.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/kids_button.dart';
 import '../../widgets/pet_avatar.dart';
@@ -414,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
 
-          KidsButton(text: 'Следующий день ➜', onPressed: _nextDay),
+          KidsButton(text: 'Следующий день 👉', onPressed: _nextDay),
           const SizedBox(height: 8),
           Text(
             'Доход за день: +${game.baseIncome} монет',
@@ -442,10 +443,14 @@ class _Pill extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
-          '$emoji $text',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '$emoji $text',
+            textAlign: TextAlign.center,
+            style:
+                const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
         ),
       ),
     );

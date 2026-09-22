@@ -34,6 +34,9 @@ class GameState extends ChangeNotifier {
   int day = 1;
   bool onboardingDone = false;
 
+  /// Тёмная тема включена (переключатель 🌙/☀️ в шапке)?
+  bool isDark = false;
+
   /// Одноразовый флаг: только что прошли онбординг — показать «Секрет игры».
   bool justFinishedOnboarding = false;
 
@@ -183,6 +186,13 @@ class GameState extends ChangeNotifier {
     return true;
   }
 
+  /// Переключить светлую/тёмную тему.
+  void toggleTheme() {
+    isDark = !isDark;
+    notifyListeners();
+    save();
+  }
+
   void updateGoal(String name, int target) {
     if (name.trim().isNotEmpty) goalName = name.trim();
     if (target >= 50) goalTarget = target;
@@ -253,6 +263,7 @@ class GameState extends ChangeNotifier {
         'goalTarget': goalTarget,
         'day': day,
         'onboardingDone': onboardingDone,
+        'isDark': isDark,
         'inventory': inventory,
         'questsDone': questsDone.toList(),
         'questGivenDay': questGivenDay,
@@ -294,6 +305,7 @@ class GameState extends ChangeNotifier {
       goalTarget = readInt('goalTarget', 300);
       day = readInt('day', 1);
       onboardingDone = decoded['onboardingDone'] == true;
+      isDark = decoded['isDark'] == true;
 
       final inv = <String, int>{};
       final rawInv = decoded['inventory'];
@@ -320,7 +332,7 @@ class GameState extends ChangeNotifier {
   Future<void> reset() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_prefsKey);
+    await prefs.remove(_prefsKey);
     } catch (_) {}
     profile = null;
     pet = null;
@@ -330,6 +342,7 @@ class GameState extends ChangeNotifier {
     goalTarget = 300;
     day = 1;
     onboardingDone = false;
+    isDark = false;
     justFinishedOnboarding = false;
     inventory = {};
     questsDone = {};

@@ -22,6 +22,8 @@ class FinnyApp extends StatelessWidget {
           title: 'Финни — финансовый питомец',
           debugShowCheckedModeBanner: false,
           theme: KidsTheme.light(),
+          darkTheme: KidsTheme.dark(),
+          themeMode: gameState.isDark ? ThemeMode.dark : ThemeMode.light,
           home: gameState.onboardingDone
               ? const MainShell()
               : const OnboardingFlow(),

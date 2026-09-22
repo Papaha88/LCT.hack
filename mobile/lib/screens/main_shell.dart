@@ -29,6 +29,15 @@ class _MainShellState extends State<MainShell> {
     BankScreen(),
   ];
 
+  /// Заголовок шапки = название текущей страницы.
+  static const _titles = [
+    'Питомец 🐾',
+    'Бюджет 📋',
+    'Задания ⭐',
+    'Покупка 🛍️',
+    'Банк 🐷',
+  ];
+
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -40,12 +49,17 @@ class _MainShellState extends State<MainShell> {
     final game = GameStateScope.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Привет, ${game.nickname}! 👋'),
+        title: Text(_titles[_index]),
         actions: [
+          IconButton(
+            tooltip: 'Сменить тему',
+            onPressed: () => GameStateScope.read(context).toggleTheme(),
+            icon: Icon(game.isDark ? Icons.light_mode : Icons.dark_mode),
+          ),
           IconButton(
             tooltip: 'Настройки',
             onPressed: _openSettings,
-            icon: const Text('⚙️', style: TextStyle(fontSize: 22)),
+            icon: const Icon(Icons.settings),
           ),
         ],
       ),
