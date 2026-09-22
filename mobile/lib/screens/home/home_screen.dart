@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../data/shop_data.dart';
-import '../../models/pet.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/kids_button.dart';
 import '../../widgets/pet_avatar.dart';

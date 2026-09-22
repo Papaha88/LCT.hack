@@ -20,7 +20,7 @@ class KidsTheme {
   static const Color darkOutline = Color(0xFF3A3D6B);
 
   static ThemeData light() {
-    final scheme = ColorScheme.light(
+    const scheme = ColorScheme.light(
       primary: primary,
       secondary: secondary,
       surface: surface,
@@ -33,12 +33,12 @@ class KidsTheme {
   }
 
   static ThemeData dark() {
-    final scheme = ColorScheme.dark(
+    const scheme = ColorScheme.dark(
       primary: darkPrimary,
       secondary: secondary,
       surface: darkSurface,
       onSurface: darkOnSurface,
-      onSurfaceVariant: const Color(0xFFB9BBE0),
+      onSurfaceVariant: Color(0xFFB9BBE0),
       outline: darkOutline,
       tertiary: success,
     );
