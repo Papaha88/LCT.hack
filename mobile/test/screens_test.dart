@@ -43,13 +43,18 @@ Finder _spark() => find.byWidgetPredicate(
       (w) => w is CustomPaint && '${w.painter.runtimeType}' == '_SparkPainter',
     );
 
+/// Нашёлся ли настоящий шрифт: от этого зависит, можно ли верить замерам ширины.
+bool _realFonts = false;
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   // Без настоящего шрифта тестовый движок рисует каждый символ квадратом
   // в кегль, и проверки ширины текста показывают переполнения там, где их нет.
   setUpAll(() async {
-    await useRealFonts();
+    _realFonts = await useRealFonts();
+    // ignore: avoid_print
+    print('REAL_FONTS_LOADED=$_realFonts\nискали в:\n${fontSearchPaths.join('\n')}');
   });
 
   test('возраст и питомец переживают перезапуск приложения', () async {
@@ -115,11 +120,30 @@ void main() {
     await tester.pumpWidget(FinnyApp(gameState: game));
     await tester.pumpAndSettle();
 
-    const slot = 360 / 5;
+    // Размер по ТЗ проверяем всегда — он от шрифта не зависит.
     for (final label in ['Питомец', 'План', 'Задания', 'Магазин', 'Банк']) {
       final finder = find.text(label);
       expect(finder, findsOneWidget);
+      final style = tester.widget<Text>(finder).style ??
+          DefaultTextStyle.of(tester.element(finder)).style;
+      expect(
+        style.fontSize ?? KidsTheme.minFontSize,
+        greaterThanOrEqualTo(KidsTheme.minFontSize),
+        reason: 'подпись «$label» мельче 16sp',
+      );
+    }
 
+    if (!_realFonts) {
+      // Служебный шрифт вдвое шире Roboto — мерить им ширину бессмысленно.
+      markTestSkipped(
+        'нет Roboto из кеша SDK: ширину подписей не проверить',
+      );
+      return;
+    }
+
+    const slot = 360 / 5;
+    for (final label in ['Питомец', 'План', 'Задания', 'Магазин', 'Банк']) {
+      final finder = find.text(label);
       final style = tester.widget<Text>(finder).style ??
           DefaultTextStyle.of(tester.element(finder)).style;
       final natural = TextPainter(
