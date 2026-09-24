@@ -64,7 +64,7 @@ class PetLook {
         );
       }
       return const PetLook(
-        label: 'Снежо�*',
+        label: 'Снежок',
         bgStart: Color(0xFFFFF8E1),
         bgEnd: Color(0xFFFFECB3),
         accent: Color(0xFF8D6E63),
@@ -88,7 +88,7 @@ class PetLook {
         );
       }
       return const PetLook(
-        label: 'Уголё�*',
+        label: 'Уголёк',
         bgStart: Color(0xFFBDBDBD),
         bgEnd: Color(0xFF616161),
         accent: Color(0xFF212121),

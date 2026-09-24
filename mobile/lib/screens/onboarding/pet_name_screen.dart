@@ -8,7 +8,7 @@ import '../../widgets/finny_avatar.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
 
-/// Шаг 4. Имя питомца + кубик со случайными именами (10 штук).
+/// Шаг 5. Имя питомца + кубик со случайными именами (10 штук).
 class PetNameScreen extends StatefulWidget {
   final String initial;
   final VoidCallback onBack;

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/kids_theme.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
 
-/// Шаг 5. Три главных правила игры.
+/// Шаг 6. Три главных правила игры.
 class RulesScreen extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onNext;
@@ -49,7 +50,6 @@ class RulesScreen extends StatelessWidget {
                     'Твой питомец будет расти и радоваться, если ты будешь '
                     'правильно распределять монетки! 💛',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15),
                   ),
                 ],
               ),
@@ -77,11 +77,13 @@ class _RuleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        // Цвет плашки, а не жёсткий белый: в тёмной теме текст пропадал.
+        color: KidsTheme.pill(context),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -94,12 +96,9 @@ class _RuleCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text(text, style: const TextStyle(fontSize: 14)),
+                Text(text, style: TextStyle(color: scheme.onSurfaceVariant)),
               ],
             ),
           ),

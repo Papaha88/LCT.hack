@@ -52,14 +52,16 @@ class PlanScreen extends StatelessWidget {
                 ? null
                 : () {
                     final ok = GameStateScope.read(context).deposit(20);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(ok
-                            ? 'Копилка пополнена! +20 🐷'
-                            : 'Не хватает монеток 😢'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text(ok
+                              ? 'Копилка пополнена! +20 🐷'
+                              : 'Не хватает монеток 😢'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
                   },
           ),
         ],
@@ -83,6 +85,7 @@ class _BucketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -94,19 +97,18 @@ class _BucketCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      )),
-                  Text(text, style: const TextStyle(fontSize: 14)),
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(text, style: TextStyle(color: scheme.onSurfaceVariant)),
                   const SizedBox(height: 4),
                   Text(
                     footer,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    // Подпись с цифрами не должна упираться в край карточки.
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

@@ -2,23 +2,41 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../data/quests_data.dart';
+import '../../widgets/action_spark.dart';
 
 /// Задания: выполнил — получил монетки.
-class QuestsScreen extends StatelessWidget {
+class QuestsScreen extends StatefulWidget {
   const QuestsScreen({super.key});
+
+  @override
+  State<QuestsScreen> createState() => _QuestsScreenState();
+}
+
+class _QuestsScreenState extends State<QuestsScreen> {
+  /// Счётчики вспышек: «огонёк» играет на выполненном задании.
+  final Map<String, int> _sparks = {};
+
+  void _complete(Quest quest) {
+    GameStateScope.read(context).completeQuest(quest.id);
+    setState(() => _sparks[quest.id] = (_sparks[quest.id] ?? 0) + 1);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Задание выполнено! +${quest.reward} 🪙'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
     final game = GameStateScope.of(context);
+    final scheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          '⭐ Задания',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 4),
         const Text('Выполняй задания и получай монетки!'),
         const SizedBox(height: 12),
         ...questsCatalog.map((q) {
@@ -30,7 +48,12 @@ class QuestsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    Text(q.emoji, style: const TextStyle(fontSize: 36)),
+                    SparkOnAction(
+                      trigger: _sparks[q.id] ?? 0,
+                      spread: 30,
+                      child: Text(q.emoji,
+                          style: const TextStyle(fontSize: 36)),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -39,43 +62,35 @@ class QuestsScreen extends StatelessWidget {
                           Text(
                             q.title,
                             style: const TextStyle(
-                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          Text(q.desc,
-                              style: const TextStyle(fontSize: 14)),
+                          Text(
+                            q.desc,
+                            style: TextStyle(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
                           Text(
                             '+${q.reward} монет 🪙',
                             style: const TextStyle(
-                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     if (done)
-                      const Text('✅',
-                          style: TextStyle(fontSize: 26))
+                      const Text('✅', style: TextStyle(fontSize: 26))
                     else
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(88, 44),
+                          // ТЗ: тач-таргет не меньше 48x48dp.
+                          minimumSize: const Size(92, 48),
                         ),
-                        onPressed: () {
-                          GameStateScope.read(context)
-                              .completeQuest(q.id);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                  'Задание выполнено! +${q.reward} 🪙'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                        child: const Text('Готово',
-                            style: TextStyle(fontSize: 16)),
+                        onPressed: () => _complete(q),
+                        child: const Text('Готово'),
                       ),
                   ],
                 ),
