@@ -295,7 +295,10 @@ void main() {
       ));
       await tester.pump();
       expect(find.text('Уголёк'), findsOneWidget);
-      expect(find.text('✓ Выбрано'), findsOneWidget);
+      expect(find.text('Выбрано'), findsOneWidget);
+      // Галочка выбранной карточки — иконка, а не символ: символа «✓»
+      // нет в шрифтах Android, вместо него рисовался пустой квадрат.
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
       expect(
         tester.takeException(),
         isNull,

@@ -115,16 +115,13 @@ class _AgeChoice extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Галочка занимает место всегда — при выборе плашка не «прыгает».
+            // Иконкой, а не символом «✓»: его нет в Roboto, и вместо галочки
+            // получался пустой квадрат.
             SizedBox(
               width: 22,
-              child: Text(
-                selected ? '✓' : '',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+              child: selected
+                  ? const Icon(Icons.check, size: 18, color: Colors.white)
+                  : null,
             ),
             Text(
               '$age лет',

@@ -22,17 +22,15 @@ class SettingsScreen extends StatelessWidget {
               (age) => SimpleDialogOption(
                 onPressed: () => Navigator.of(dialogContext).pop(age),
                 // Галочка занимает место всегда, строки не «прыгают».
+                // Иконкой, а не символом «✓»: его нет в Roboto, и вместо
+                // галочки получался пустой квадрат.
                 child: Row(
                   children: [
                     SizedBox(
                       width: 24,
-                      child: Text(
-                        age == current ? '✓' : '',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: age == current
+                          ? const Icon(Icons.check, size: 18)
+                          : null,
                     ),
                     Text('$age лет', style: const TextStyle(fontSize: 18)),
                   ],
