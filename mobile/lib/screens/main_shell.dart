@@ -34,7 +34,7 @@ class _MainShellState extends State<MainShell> {
     'Питомец 🐾',
     'Бюджет 📋',
     'Задания ⭐',
-    'Покупка 🛍️',
+    'Магазин 🛍️',
     'Банк 🐷',
   ];
 
@@ -68,8 +68,9 @@ class _MainShellState extends State<MainShell> {
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
         type: BottomNavigationBarType.fixed,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
+        // ТЗ: текст не меньше 16sp.
+        selectedFontSize: 16,
+        unselectedFontSize: 16,
         items: const [
           BottomNavigationBarItem(
             icon: Text('🐾', style: TextStyle(fontSize: 22)),

@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../data/shop_data.dart';
+import '../../models/game_state.dart';
+import '../../theme/kids_theme.dart';
+import '../../widgets/action_spark.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/kids_button.dart';
 import '../../widgets/pet_avatar.dart';
 import '../../widgets/stat_bar.dart';
 
-/// Главный экран: баланс, уровень, цель, питомец, статы,
-/// подсказка Финни, активное задание, смена периода.
+/// Главный экран: приветствие с возрастом, баланс, уровень, цель, питомец,
+/// статы, подсказка Финни, активное задание, смена периода.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -17,6 +20,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  /// Счётчик вспышек вокруг питомца: каждое действие увеличивает его
+  /// на 1, и «огонёк» проигрывается заново.
+  int _petSpark = 0;
+
   @override
   void initState() {
     super.initState();
@@ -80,77 +87,33 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
-  /// Тап по питомцу: текстовая подсказка + рюкзачок.
-  void _onPetTap() {
+  /// Тап по питомцу открывает рюкзачок. Подсказка о настроении и так
+  /// написана под питомцем, поэтому снекбар здесь только мешал бы листу.
+  Future<void> _onPetTap() async {
     final game = GameStateScope.read(context);
-    final pet = game.pet;
-    if (pet == null) return;
-    _showSnack(pet.moodText());
-    _openInventory();
+    if (game.pet == null) return;
+    final used = await _openInventory(game);
+    if (!mounted || used <= 0) return;
+    setState(() => _petSpark++);
+    _showSnack('${game.pet!.name} доволен! 💛');
   }
 
   /// Рюкзачок: купленная еда, уход и игрушки. Тап — использовать.
-  void _openInventory() {
-    final game = GameStateScope.read(context);
-    final owned = shopCatalog
-        .where((item) => (game.inventory[item.id] ?? 0) > 0)
-        .toList();
-
-    showModalBottomSheet<void>(
+  ///
+  /// Возвращает число использованных предметов: по нему главный экран
+  /// понимает, что питомцу стоит показать «огонёк».
+  Future<int> _openInventory(GameState game) async {
+    final used = await showModalBottomSheet<int>(
       context: context,
+      // Лист может занять больше половины экрана — иначе шесть предметов
+      // в него не влезают.
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (sheetContext) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '🎒 Рюкзачок питомца',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              const Text('Нажми «Дать», чтобы использовать предмет.'),
-              const SizedBox(height: 12),
-              if (owned.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'Пока пусто... Загляни в магазин! 🛍️',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                )
-              else
-                ...owned.map((item) {
-                  final count = game.inventory[item.id] ?? 0;
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Text(item.emoji,
-                        style: const TextStyle(fontSize: 32)),
-                    title: Text('${item.title} × $count'),
-                    subtitle: Text(item.effectText),
-                    trailing: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(72, 44),
-                      ),
-                      onPressed: () {
-                        final effect = game.useItem(item.id);
-                        Navigator.of(sheetContext).pop();
-                        if (effect != null) _showSnack(effect);
-                      },
-                      child: const Text('Дать',
-                          style: TextStyle(fontSize: 16)),
-                    ),
-                  );
-                }),
-            ],
-          ),
-        );
-      },
+      builder: (_) => _InventorySheet(game: game),
     );
+    return used ?? 0;
   }
 
   /// Кнопка переключения периода: «новый день» + начисление дохода.
@@ -175,12 +138,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+    // Огонёк показываем после диалога — за ним его не было бы видно.
+    if (mounted) setState(() => _petSpark++);
   }
 
   @override
   Widget build(BuildContext context) {
     final game = GameStateScope.of(context);
     final pet = game.pet;
+    final scheme = Theme.of(context).colorScheme;
 
     if (pet == null) {
       return const Center(child: Text('Питомец не найден 😢'));
@@ -188,19 +154,59 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final hints = game.finnyHints();
     final quest = game.activeQuest;
+    final age = game.age;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Баланс • Уровень • День
+          // Приветствие: имя игрока и его возраст.
           Row(
             children: [
+              Expanded(
+                child: Text(
+                  'Привет, ${game.nickname}!',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              if (age != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: KidsTheme.pill(context),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '👦 $age лет',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Баланс • Уровень • День. Wrap, а не Row: на узких экранах
+          // плашки переносятся на вторую строку, а не сжимают текст.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
               _Pill(emoji: '🪙', text: '${game.balance}'),
-              const SizedBox(width: 8),
               _Pill(emoji: '⭐', text: 'Ур. ${pet.level}'),
-              const SizedBox(width: 8),
               _Pill(emoji: '📅', text: 'День ${game.day}'),
             ],
           ),
@@ -215,13 +221,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text('🎯 Цель: ',
-                          style: TextStyle(fontSize: 16)),
+                      const Text('🎯 Цель: '),
                       Expanded(
                         child: Text(
                           game.goalName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -260,6 +266,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       Flexible(
                         child: Text(
                           pet.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -269,16 +277,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEDE7F6),
+                          color: KidsTheme.soft(context),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           pet.stage,
-                          style: const TextStyle(
-                            fontSize: 13,
+                          style: TextStyle(
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
+                            color: scheme.onSurface,
                           ),
                         ),
                       ),
@@ -287,25 +296,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 12),
                   GestureDetector(
                     onTap: _onPetTap,
-                    child: PetAvatar(
-                      type: pet.type,
-                      variant: pet.variant,
-                      size: 150,
-                      moodEmoji: pet.moodEmoji,
+                    child: SparkOnAction(
+                      trigger: _petSpark,
+                      spread: 52,
+                      child: PetAvatar(
+                        type: pet.type,
+                        variant: pet.variant,
+                        size: 150,
+                        moodEmoji: pet.moodEmoji,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     pet.moodText(),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Нажми на питомца, чтобы открыть рюкзачок 🎒',
-                    style: TextStyle(fontSize: 13),
+                    textAlign: TextAlign.center,
                   ),
                   const Divider(height: 24),
                   StatBar(
@@ -359,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: Text(
                       hints.first,
-                      style: const TextStyle(fontSize: 16, height: 1.35),
+                      style: const TextStyle(height: 1.35),
                     ),
                   ),
                 ],
@@ -375,10 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: quest == null
                   ? const Text(
                       '🎉 Все задания выполнены! Ты супер!',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     )
                   : Row(
                       children: [
@@ -390,21 +398,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             crossAxisAlignment:
                                 CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Активное задание ⭐',
-                                style: TextStyle(fontSize: 13),
+                                style: TextStyle(
+                                  color: scheme.onSurfaceVariant,
+                                ),
                               ),
                               Text(
                                 quest.title,
                                 style: const TextStyle(
-                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text(
-                                '+${quest.reward} монет',
-                                style: const TextStyle(fontSize: 14),
-                              ),
+                              Text('+${quest.reward} монет'),
                             ],
                           ),
                         ),
@@ -419,7 +425,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Text(
             'Доход за день: +${game.baseIncome} монет',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13),
+            style: TextStyle(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -435,21 +441,197 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: KidsTheme.pill(context),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        '$emoji $text',
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            '$emoji $text',
-            textAlign: TextAlign.center,
-            style:
-                const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-          ),
+      ),
+    );
+  }
+}
+
+/// Рюкзачок питомца: список предметов, «Дать» и «огонёк» на использованном.
+///
+/// Список берётся снимком на момент открытия и не «дёргается», когда
+/// предмет заканчивается: строка остаётся и показывает «закончился».
+class _InventorySheet extends StatefulWidget {
+  final GameState game;
+
+  const _InventorySheet({required this.game});
+
+  @override
+  State<_InventorySheet> createState() => _InventorySheetState();
+}
+
+class _InventorySheetState extends State<_InventorySheet> {
+  late final List<ShopItem> _items = shopCatalog
+      .where((item) => (widget.game.inventory[item.id] ?? 0) > 0)
+      .toList();
+
+  final Map<String, int> _sparks = {};
+  int _used = 0;
+  String? _lastEffect;
+
+  void _give(ShopItem item) {
+    final effect = widget.game.useItem(item.id);
+    if (effect == null) return;
+    setState(() {
+      _used += 1;
+      _sparks[item.id] = (_sparks[item.id] ?? 0) + 1;
+      _lastEffect = effect;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final game = widget.game;
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '🎒 Рюкзачок питомца',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Нажми «Дать», чтобы использовать предмет.',
+              style: TextStyle(color: scheme.onSurfaceVariant),
+            ),
+            if (_lastEffect != null) ...[
+              const SizedBox(height: 10),
+              _EffectLine(text: _lastEffect!),
+            ],
+            const SizedBox(height: 10),
+            if (_items.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('Пока пусто... Загляни в магазин! 🛍️'),
+              )
+            else
+              // Прокрутка с ограничением по высоте: шесть предметов
+              // больше не переполняют лист.
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                  ),
+                  child: AnimatedBuilder(
+                    animation: game,
+                    builder: (context, _) => ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _items.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = _items[index];
+                        final count = game.inventory[item.id] ?? 0;
+                        return _InventoryRow(
+                          item: item,
+                          count: count,
+                          spark: _sparks[item.id] ?? 0,
+                          onGive: count > 0 ? () => _give(item) : null,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+            KidsButton(
+              text: 'Готово ✅',
+              onPressed: () => Navigator.of(context).pop(_used),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InventoryRow extends StatelessWidget {
+  final ShopItem item;
+  final int count;
+
+  /// Счётчик вспышек для этой строки.
+  final int spark;
+  final VoidCallback? onGive;
+
+  const _InventoryRow({
+    required this.item,
+    required this.count,
+    required this.spark,
+    required this.onGive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final empty = count <= 0;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      // minVerticalPadding держит строку не ниже 48dp по ТЗ.
+      minVerticalPadding: 8,
+      leading: SparkOnAction(
+        trigger: spark,
+        child: Text(item.emoji, style: const TextStyle(fontSize: 32)),
+      ),
+      title: Text(
+        '${item.title} × $count',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text(
+        empty ? 'Закончился — загляни в магазин 🛍️' : item.effectText,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: empty ? scheme.onSurfaceVariant : scheme.onSurface,
+        ),
+      ),
+      trailing: ElevatedButton(
+        // ТЗ: тач-таргет не меньше 48x48dp.
+        style: ElevatedButton.styleFrom(minimumSize: const Size(84, 48)),
+        onPressed: onGive,
+        child: const Text('Дать'),
+      ),
+    );
+  }
+}
+
+/// Строка с результатом последнего действия — вместо снекбара, который
+/// прятался за листом.
+class _EffectLine extends StatelessWidget {
+  final String text;
+
+  const _EffectLine({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: KidsTheme.soft(context),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.onSurface,
         ),
       ),
     );

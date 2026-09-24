@@ -76,6 +76,9 @@ class GameState extends ChangeNotifier {
 
   String get nickname => profile?.nickname ?? 'Друг';
 
+  /// Возраст игрока. `null` — сейв, сделанный до появления вопроса о возрасте.
+  int? get age => profile?.age;
+
   Future<void> init() async {
     await load();
   }
@@ -97,11 +100,12 @@ class GameState extends ChangeNotifier {
 
   Future<void> createProfile({
     required String nickname,
+    required int age,
     required PetType type,
     required PetVariant variant,
     required String petName,
   }) async {
-    profile = PlayerProfile(nickname: nickname);
+    profile = PlayerProfile(nickname: nickname, age: age);
     pet = Pet(
       type: type,
       variant: variant,
@@ -196,6 +200,15 @@ class GameState extends ChangeNotifier {
   void updateGoal(String name, int target) {
     if (name.trim().isNotEmpty) goalName = name.trim();
     if (target >= 50) goalTarget = target;
+    notifyListeners();
+    save();
+  }
+
+  /// Возраст меняется в настройках — ребёнок растёт, а игра остаётся.
+  void updateAge(int age) {
+    final p = profile;
+    if (p == null || !PlayerProfile.isValidAge(age)) return;
+    profile = p.copyWith(age: age);
     notifyListeners();
     save();
   }
@@ -332,7 +345,7 @@ class GameState extends ChangeNotifier {
   Future<void> reset() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsKey);
+      await prefs.remove(_prefsKey);
     } catch (_) {}
     profile = null;
     pet = null;

@@ -2,14 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app.dart';
+import '../../theme/kids_theme.dart';
+import '../../widgets/action_spark.dart';
 
 /// Банк-копилка: цель, прогресс, пополнение и снятие.
-class BankScreen extends StatelessWidget {
+class BankScreen extends StatefulWidget {
   const BankScreen({super.key});
 
-  void _deposit(BuildContext context, int amount) {
+  @override
+  State<BankScreen> createState() => _BankScreenState();
+}
+
+class _BankScreenState extends State<BankScreen> {
+  /// Счётчик вспышек: «огонёк» играет на копилке после пополнения.
+  int _spark = 0;
+
+  void _deposit(int amount) {
     final game = GameStateScope.read(context);
     final ok = game.deposit(amount);
+    if (ok) setState(() => _spark++);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -39,7 +50,7 @@ class BankScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _editGoal(BuildContext context) async {
+  Future<void> _editGoal() async {
     final game = GameStateScope.read(context);
     final nameController = TextEditingController(text: game.goalName);
     final targetController =
@@ -105,11 +116,6 @@ class BankScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            '🐷 Копилка',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
           const Text('Откладывай монетки на большую мечту!'),
           const SizedBox(height: 12),
           Card(
@@ -117,10 +123,16 @@ class BankScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  const Text('🐷', style: TextStyle(fontSize: 64)),
+                  // Огонёк вспыхивает на копилке после пополнения.
+                  SparkOnAction(
+                    trigger: _spark,
+                    spread: 56,
+                    child: const Text('🐷', style: TextStyle(fontSize: 64)),
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Цель: ${game.goalName}',
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -140,10 +152,10 @@ class BankScreen extends StatelessWidget {
                         ? 'Накоплено! Можно праздновать! 🎉'
                         : 'Есть ${game.savings} из ${game.goalTarget} • '
                             'осталось ${game.goalLeft}',
-                    style: const TextStyle(fontSize: 15),
+                    textAlign: TextAlign.center,
                   ),
                   TextButton.icon(
-                    onPressed: () => _editGoal(context),
+                    onPressed: _editGoal,
                     icon: const Text('✏️'),
                     label: const Text('Изменить цель'),
                   ),
@@ -155,7 +167,7 @@ class BankScreen extends StatelessWidget {
           Text(
             'В кошельке: 🪙 ${game.balance}',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Row(
@@ -168,11 +180,8 @@ class BankScreen extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: game.balance < amount
                             ? null
-                            : () => _deposit(context, amount),
-                        child: Text(
-                          '+$amount',
-                          style: const TextStyle(fontSize: 18),
-                        ),
+                            : () => _deposit(amount),
+                        child: Text('+$amount'),
                       ),
                     ),
                   ),
@@ -185,6 +194,12 @@ class BankScreen extends StatelessWidget {
                 ? null
                 : () => GameStateScope.read(context).withdraw(10),
             child: const Text('Забрать 10 из копилки'),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Снятие из копилки сдвинет срок достижения цели 🐷',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: KidsTheme.muted(context)),
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Полоска стата: эмодзи + подпись + «78/100» + прогресс.
+import '../theme/kids_theme.dart';
+
+/// Полоска стата: эмодзи + подпись + «78/100 • отлично!» + прогресс.
 /// Важно: состояние дублируется текстом, а не только цветом (требование ТЗ).
 class StatBar extends StatelessWidget {
   final String emoji;
@@ -38,20 +40,25 @@ class StatBar extends StatelessWidget {
               children: [
                 Text(emoji, style: const TextStyle(fontSize: 20)),
                 const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '$value/100 • $_hint',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF5A5470),
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 8),
+                // Flexible, а не просто Text: при крупном системном шрифте
+                // подпись переносится, а не вылезает за карточку.
+                Flexible(
+                  child: Text(
+                    '$value/100 • $_hint',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: KidsTheme.muted(context),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -62,7 +69,7 @@ class StatBar extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: value / 100,
                 minHeight: 12,
-                backgroundColor: const Color(0xFFEDE7F6),
+                backgroundColor: KidsTheme.soft(context),
                 valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),

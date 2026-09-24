@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../models/pet.dart';
+import '../../theme/kids_theme.dart';
+import '../../widgets/action_spark.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
 import '../../widgets/pet_avatar.dart';
 
-/// Шаг 3б. Выбор окраски: 3 варианта на каждый вид.
+/// Шаг 4б. Выбор окраски: 3 варианта на каждый вид.
 /// Всего 3 вида x 3 окраски = 9 комбинаций.
 class PetColorScreen extends StatefulWidget {
   final PetType type;
@@ -100,46 +102,48 @@ class _ColorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final look = PetLook.of(type, variant);
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: KidsTheme.pill(context),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color:
-                selected ? const Color(0xFF6C63FF) : Colors.transparent,
+            color: selected ? scheme.primary : scheme.outline,
             width: 3,
           ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 12,
-              offset: Offset(0, 4),
-            ),
-          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            PetAvatar(type: type, variant: variant, size: 78),
+            // Огонёк вспыхивает, когда окраску выбрали.
+            SparkOnAction(
+              trigger: selected ? 1 : 0,
+              spread: 30,
+              child: PetAvatar(type: type, variant: variant, size: 74),
+            ),
             const SizedBox(height: 10),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                look.label,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
+            Text(
+              look.label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
+            // Состояние показано текстом, а не только цветом (требование ТЗ).
             Text(
-              selected ? '✅ Выбрано' : '⬜',
-              style: const TextStyle(fontSize: 14),
+              selected ? '✓ Выбрано' : 'Выбрать',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
