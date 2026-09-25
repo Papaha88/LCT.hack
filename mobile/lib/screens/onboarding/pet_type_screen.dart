@@ -80,7 +80,8 @@ class _PetTypeScreenState extends State<PetTypeScreen> {
           ),
           const SizedBox(height: 8),
           KidsButton(
-            text: 'Далее ➜',
+            text: 'Далее',
+            icon: Icons.arrow_forward,
             onPressed:
                 _selected == null ? null : () => widget.onNext(_selected!),
           ),

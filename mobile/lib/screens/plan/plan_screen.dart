@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../widgets/kids_button.dart';
+import '../level_up/level_up_screen.dart';
 
 /// План бюджета: 3 правила + живые цифры + быстрое действие.
 class PlanScreen extends StatelessWidget {
@@ -50,7 +51,7 @@ class PlanScreen extends StatelessWidget {
             text: 'Отложить 20 в копилку 🐷',
             onPressed: game.balance < 20
                 ? null
-                : () {
+                : () async {
                     final ok = GameStateScope.read(context).deposit(20);
                     ScaffoldMessenger.of(context)
                       ..hideCurrentSnackBar()
@@ -62,6 +63,8 @@ class PlanScreen extends StatelessWidget {
                           behavior: SnackBarBehavior.floating,
                         ),
                       );
+                    // Копилка даёт опыт — питомец мог дорасти до уровня.
+                    await showLevelUpIfNeeded(context);
                   },
           ),
         ],

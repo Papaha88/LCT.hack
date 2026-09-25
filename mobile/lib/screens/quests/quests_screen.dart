@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../../data/quests_data.dart';
 import '../../widgets/action_spark.dart';
+import '../level_up/level_up_screen.dart';
 
 /// Задания: выполнил — получил монетки.
 class QuestsScreen extends StatefulWidget {
@@ -16,7 +17,7 @@ class _QuestsScreenState extends State<QuestsScreen> {
   /// Счётчики вспышек: «огонёк» играет на выполненном задании.
   final Map<String, int> _sparks = {};
 
-  void _complete(Quest quest) {
+  Future<void> _complete(Quest quest) async {
     GameStateScope.read(context).completeQuest(quest.id);
     setState(() => _sparks[quest.id] = (_sparks[quest.id] ?? 0) + 1);
     ScaffoldMessenger.of(context)
@@ -27,6 +28,8 @@ class _QuestsScreenState extends State<QuestsScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+    // Задание даёт опыт — питомец мог дорасти до нового уровня.
+    await showLevelUpIfNeeded(context);
   }
 
   @override
