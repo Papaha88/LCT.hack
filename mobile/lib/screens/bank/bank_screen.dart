@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../app.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
+import '../level_up/level_up_screen.dart';
 
 /// Банк-копилка: цель, прогресс, пополнение и снятие.
 class BankScreen extends StatefulWidget {
@@ -17,9 +18,10 @@ class _BankScreenState extends State<BankScreen> {
   /// Счётчик вспышек: «огонёк» играет на копилке после пополнения.
   int _spark = 0;
 
-  void _deposit(int amount) {
+  Future<void> _deposit(int amount) async {
     final game = GameStateScope.read(context);
     final ok = game.deposit(amount);
+    if (!mounted) return;
     if (ok) setState(() => _spark++);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -31,7 +33,7 @@ class _BankScreenState extends State<BankScreen> {
         ),
       );
     if (ok && game.goalProgress >= 1) {
-      showDialog<void>(
+      await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('🎉 Цель достигнута!'),
@@ -48,6 +50,8 @@ class _BankScreenState extends State<BankScreen> {
         ),
       );
     }
+    // Копилка даёт опыт — питомец мог дорасти до нового уровня.
+    if (mounted) await showLevelUpIfNeeded(context);
   }
 
   Future<void> _editGoal() async {

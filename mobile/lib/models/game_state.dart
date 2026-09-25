@@ -10,6 +10,88 @@ import 'player_profile.dart';
 
 int _stat(int v) => v < 0 ? 0 : (v > 100 ? 100 : v);
 
+/// Доход за период для конкретного уровня: 40 + уровень × 10.
+///
+/// Уровень растёт — растёт доход. Это главная «плюшка» развития, ради неё
+/// и стоит вкладывать монетки: об этом же говорит «Секрет игры».
+int incomeForLevel(int level) => 40 + level * 10;
+
+/// Сколько монет даём за каждый новый уровень.
+const int levelUpCoins = 25;
+
+/// Сколько питомец «тратит» за прошедший день.
+const int dayHungerCost = 15;
+const int dayHappinessCost = 10;
+const int dayCleanlinessCost = 12;
+
+/// Событие «питомец вырос».
+///
+/// Награда начисляется сразу, а событие ждёт в [GameState.pendingLevelUp],
+/// пока экран нового уровня его не заберёт: так он не потеряется, если
+/// опыт прилетел из другого экрана (копилка, задания).
+class LevelUpEvent {
+  /// Уровень до роста и после.
+  final int fromLevel;
+  final int toLevel;
+
+  /// Монетки за рост — всего, если уровней набралось несколько.
+  final int coins;
+
+  const LevelUpEvent({
+    required this.fromLevel,
+    required this.toLevel,
+    required this.coins,
+  });
+
+  int get levelsGained => toLevel - fromLevel;
+
+  int get incomeFrom => incomeForLevel(fromLevel);
+  int get incomeTo => incomeForLevel(toLevel);
+
+  String get stageFrom => Pet.stageForLevel(fromLevel);
+  String get stageTo => Pet.stageForLevel(toLevel);
+
+  /// Сменился ли этап взросления — самый заметный результат роста.
+  bool get stageChanged => stageFrom != stageTo;
+}
+
+/// Итоги перехода к новому периоду — из них собирается «бумажка» с подсчётом.
+class DaySummary {
+  /// Новый день.
+  final int day;
+
+  /// Сколько монет принёс день.
+  final int income;
+
+  /// Сколько на самом деле потратил питомец. Не номинальные «−15», а реальная
+  /// просадка: если сытость была 10, потеряется 10, и в бумажке будет 10.
+  final int hungerLost;
+  final int happinessLost;
+  final int cleanlinessLost;
+
+  final int balance;
+  final int savings;
+  final String goalName;
+  final int goalTarget;
+
+  const DaySummary({
+    required this.day,
+    required this.income,
+    required this.hungerLost,
+    required this.happinessLost,
+    required this.cleanlinessLost,
+    required this.balance,
+    required this.savings,
+    required this.goalName,
+    required this.goalTarget,
+  });
+
+  int get goalLeft {
+    final left = goalTarget - savings;
+    return left < 0 ? 0 : left;
+  }
+}
+
 /// Общее состояние игры: профиль, питомец, деньги, цель,
 /// задания, инвентарь, периоды.
 ///
@@ -51,8 +133,21 @@ class GameState extends ChangeNotifier {
   /// Дата последнего ежедневного бонуса (yyyy-MM-dd).
   String? lastBonusDate;
 
+  /// Новый уровень, который ещё не показали ребёнку: награда уже начислена,
+  /// ждёт только экран. Живёт до перезапуска — показывать «поздравление»
+  /// после холодного старта было бы странно.
+  LevelUpEvent? pendingLevelUp;
+
   /// Доход за новый период. Растёт с уровнем питомца.
-  int get baseIncome => 40 + (pet?.level ?? 1) * 10;
+  int get baseIncome => incomeForLevel(pet?.level ?? 1);
+
+  /// Забирает событие роста для экрана нового уровня.
+  /// Возвращает null, если показывать нечего.
+  LevelUpEvent? consumeLevelUp() {
+    final event = pendingLevelUp;
+    pendingLevelUp = null;
+    return event;
+  }
 
   double get goalProgress {
     if (goalTarget <= 0) return 0;
@@ -125,20 +220,40 @@ class GameState extends ChangeNotifier {
     questsDone = {};
     questGivenDay = 1;
     lastBonusDate = _today();
+    pendingLevelUp = null;
     onboardingDone = true;
     justFinishedOnboarding = true;
     notifyListeners();
     await save();
   }
 
+  /// Начисляет опыт. Если питомец дорос до нового уровня — сразу выдаёт
+  /// награду и запоминает событие, чтобы экран мог его показать.
+  ///
+  /// Доход за день растёт сам (он считается от уровня), отдельно его
+  /// повышать не нужно — экран просто показывает разницу.
   void _addXp(int amount) {
     final p = pet;
     if (p == null || amount <= 0) return;
+    final fromLevel = p.level;
     p.xp += amount;
     while (p.xp >= 100) {
       p.xp -= 100;
       p.level += 1;
     }
+    if (p.level == fromLevel) return;
+
+    final gained = p.level - fromLevel;
+    final coins = levelUpCoins * gained;
+    balance += coins;
+    p.hunger = 100;
+    p.happiness = 100;
+    p.cleanliness = 100;
+    pendingLevelUp = LevelUpEvent(
+      fromLevel: fromLevel,
+      toLevel: p.level,
+      coins: coins,
+    );
   }
 
   /// Использовать предмет из инвентаря.
@@ -226,20 +341,40 @@ class GameState extends ChangeNotifier {
   }
 
   /// Переход к следующему периоду («новый день»).
-  /// Возвращает начисленный доход — для диалога-анимации.
-  int nextDay() {
+  /// Возвращает итоги — из них собирается «бумажка» с подсчётом.
+  DaySummary nextDay() {
     final income = baseIncome;
     day += 1;
     balance += income;
+
+    var hungerLost = 0;
+    var happinessLost = 0;
+    var cleanlinessLost = 0;
     final p = pet;
     if (p != null) {
-      p.hunger = _stat(p.hunger - 15);
-      p.happiness = _stat(p.happiness - 10);
-      p.cleanliness = _stat(p.cleanliness - 12);
+      final hungerBefore = p.hunger;
+      final happinessBefore = p.happiness;
+      final cleanlinessBefore = p.cleanliness;
+      p.hunger = _stat(p.hunger - dayHungerCost);
+      p.happiness = _stat(p.happiness - dayHappinessCost);
+      p.cleanliness = _stat(p.cleanliness - dayCleanlinessCost);
+      hungerLost = hungerBefore - p.hunger;
+      happinessLost = happinessBefore - p.happiness;
+      cleanlinessLost = cleanlinessBefore - p.cleanliness;
     }
     notifyListeners();
     save();
-    return income;
+    return DaySummary(
+      day: day,
+      income: income,
+      hungerLost: hungerLost,
+      happinessLost: happinessLost,
+      cleanlinessLost: cleanlinessLost,
+      balance: balance,
+      savings: savings,
+      goalName: goalName,
+      goalTarget: goalTarget,
+    );
   }
 
   /// Мягкие уведомления-помощники от Финни для главного экрана.
@@ -361,6 +496,7 @@ class GameState extends ChangeNotifier {
     questsDone = {};
     questGivenDay = 1;
     lastBonusDate = null;
+    pendingLevelUp = null;
     notifyListeners();
   }
 }

@@ -76,7 +76,8 @@ class _PetColorScreenState extends State<PetColorScreen> {
           ),
           const SizedBox(height: 8),
           KidsButton(
-            text: 'Далее ➜',
+            text: 'Далее',
+            icon: Icons.arrow_forward,
             onPressed: () => widget.onNext(_selected),
           ),
           BackLink(onPressed: widget.onBack),

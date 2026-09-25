@@ -5,10 +5,12 @@ import '../../data/shop_data.dart';
 import '../../models/game_state.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
+import '../../widgets/day_paper.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/kids_button.dart';
 import '../../widgets/pet_avatar.dart';
 import '../../widgets/stat_bar.dart';
+import '../level_up/level_up_screen.dart';
 
 /// Главный экран: приветствие с возрастом, баланс, уровень, цель, питомец,
 /// статы, подсказка Финни, активное задание, смена периода.
@@ -93,9 +95,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final game = GameStateScope.read(context);
     if (game.pet == null) return;
     final used = await _openInventory(game);
-    if (!mounted || used <= 0) return;
-    setState(() => _petSpark++);
-    _showSnack('${game.pet!.name} доволен! 💛');
+    if (!mounted) return;
+    // Кормление даёт опыт — питомец мог дорасти до нового уровня.
+    final levelUp = await showLevelUpIfNeeded(context);
+    if (!mounted) return;
+    if (used > 0) setState(() => _petSpark++);
+    if (!levelUp && used > 0) _showSnack('${game.pet!.name} доволен! 💛');
   }
 
   /// Рюкзачок: купленная еда, уход и игрушки. Тап — использовать.
@@ -116,29 +121,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return used ?? 0;
   }
 
-  /// Кнопка переключения периода: «новый день» + начисление дохода.
+  /// Кнопка переключения периода: «новый день», доход и бумажка с итогами.
   Future<void> _nextDay() async {
-    final game = GameStateScope.read(context);
-    final income = game.nextDay();
+    final summary = GameStateScope.read(context).nextDay();
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('☀️ День ${game.day}!'),
-        content: Text(
-          'Новый день наступил!\n'
-          'Доход: +$income монет 🪙\n'
-          'Не забудь покормить питомца!',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Отлично!'),
-          ),
-        ],
-      ),
-    );
-    // Огонёк показываем после диалога — за ним его не было бы видно.
+    await showDayPaper(context, summary);
+    // Огонёк показываем после бумажки — за диалогом его не было бы видно.
     if (mounted) setState(() => _petSpark++);
   }
 

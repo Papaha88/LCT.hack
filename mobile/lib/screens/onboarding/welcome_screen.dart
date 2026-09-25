@@ -34,7 +34,11 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          KidsButton(text: 'Далее ➜', onPressed: onNext),
+          KidsButton(
+            text: 'Далее',
+            icon: Icons.arrow_forward,
+            onPressed: onNext,
+          ),
         ],
       ),
     );
