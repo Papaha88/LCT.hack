@@ -7,6 +7,7 @@ import 'plan/plan_screen.dart';
 import 'quests/quests_screen.dart';
 import 'settings/settings_screen.dart';
 import 'shop/shop_screen.dart';
+import '../widgets/streak_flame.dart';
 
 /// Каркас с нижней навигацией:
 /// Питомец • План • Задания • Магазин • Банк.
@@ -31,11 +32,11 @@ class _MainShellState extends State<MainShell> {
 
   /// Заголовок шапки = название текущей страницы.
   static const _titles = [
-    'Питомец 🐾',
-    'Бюджет 📋',
-    'Задания ⭐',
-    'Магазин 🛍️',
-    'Банк 🐷',
+    'Мой питомец',
+    'План бюджета',
+    'Дороги заданий',
+    'Магазинчик',
+    'Копилка',
   ];
 
   void _openSettings() {
@@ -51,6 +52,7 @@ class _MainShellState extends State<MainShell> {
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
+          const StreakFlame(),
           IconButton(
             tooltip: 'Сменить тему',
             onPressed: () => GameStateScope.read(context).toggleTheme(),

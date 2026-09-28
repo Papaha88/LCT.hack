@@ -204,7 +204,7 @@ void main() {
 
       await tester.tap(find.text('Математика').first);
       await tester.pumpAndSettle();
-      expect(find.text('🔁 Повтори — и получишь монетки'), findsOneWidget);
+      expect(find.text('🔁 Повтори'), findsOneWidget);
 
       final road = find
           .descendant(

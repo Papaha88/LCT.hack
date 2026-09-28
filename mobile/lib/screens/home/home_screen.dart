@@ -4,19 +4,25 @@ import '../../app.dart';
 import '../../data/lessons_data.dart';
 import '../../data/shop_data.dart';
 import '../../models/game_state.dart';
+import '../../models/pet.dart';
 import '../../models/player_profile.dart';
+import '../../services/pet_assets.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
 import '../../widgets/day_paper.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/kids_button.dart';
-import '../../widgets/pet_avatar.dart';
+import '../../widgets/pet_model.dart';
 import '../../widgets/stat_bar.dart';
 import '../level_up/level_up_screen.dart';
 import '../quests/quests_screen.dart';
 
-/// Главный экран: приветствие с возрастом, баланс, уровень, цель, питомец,
-/// статы, подсказка Финни, активное задание, смена периода.
+/// Главный экран. Сверху — монеты, уровень, день; в центре — питомец
+/// с настроением; ниже — цель, следующее задание и смена дня.
+///
+/// Текста минимум: состояние питомца видно по нему самому (мордочка,
+/// фраза, анимация), а подсказка Финни появляется, только когда есть
+/// что сказать.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -25,9 +31,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  /// Счётчик вспышек вокруг питомца: каждое действие увеличивает его
-  /// на 1, и «огонёк» проигрывается заново.
-  int _petSpark = 0;
+  /// Счётчик реакций питомца: каждое действие — прыжок и «огонёк».
+  int _reaction = 0;
+  PetAnim _reactionAnim = PetAnim.happy;
 
   @override
   void initState() {
@@ -39,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     final game = GameStateScope.read(context);
 
-    // Первый вход после онбординга — «Секрет игры».
+    // Первый вход после онбординга — «Секрет игры» (один раз за игру).
     if (game.justFinishedOnboarding) {
       game.justFinishedOnboarding = false;
       final petName = game.pet?.name ?? 'питомец';
@@ -48,14 +54,13 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (dialogContext) => AlertDialog(
           title: const Text('🤫 Секрет игры'),
           content: Text(
-            'Чем лучше ты планируешь свои траты и вкладываешь монеты '
-            'в обучение, тем больше монет ты будешь получать в будущем, '
-            'и тем быстрее $petName вырастет!',
+            'Планируй траты и решай задания — будешь получать больше '
+            'монет, а $petName вырастет быстрее!',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Круто! 🚀'),
+              child: const Text('Круто!'),
             ),
           ],
         ),
@@ -63,74 +68,45 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // Возвращение в новый день — ежедневный бонус +15.
-    if (game.claimDailyBonusIfNeeded()) {
-      if (!mounted) return;
-      final petName = game.pet?.name ?? 'Питомец';
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('🎁 Ежедневный бонус'),
-          content: Text('$petName рад тебя видеть! +15 монет 🪙'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Ура!'),
-            ),
-          ],
-        ),
-      );
-    }
+    // Бонус за возвращение — плашкой сверху, без диалога.
+    game.claimDailyBonusIfNeeded();
   }
 
-  void _showSnack(String text) {
+  void _react(PetAnim anim) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
-      );
+    setState(() {
+      _reaction++;
+      _reactionAnim = anim;
+    });
   }
 
-  /// Тап по питомцу открывает рюкзачок. Подсказка о настроении и так
-  /// написана под питомцем, поэтому снекбар здесь только мешал бы листу.
-  Future<void> _onPetTap() async {
+  /// Тап по питомцу или по «Рюкзаку» — открыть рюкзачок.
+  Future<void> _openBackpack() async {
     final game = GameStateScope.read(context);
     if (game.pet == null) return;
-    final used = await _openInventory(game);
-    if (!mounted) return;
-    // Кормление даёт опыт — питомец мог дорасти до нового уровня.
-    final levelUp = await showLevelUpIfNeeded(context);
-    if (!mounted) return;
-    if (used > 0) setState(() => _petSpark++);
-    if (!levelUp && used > 0) _showSnack('${game.pet!.name} доволен! 💛');
-  }
-
-  /// Рюкзачок: купленная еда, уход и игрушки. Тап — использовать.
-  ///
-  /// Возвращает число использованных предметов: по нему главный экран
-  /// понимает, что питомцу стоит показать «огонёк».
-  Future<int> _openInventory(GameState game) async {
-    final used = await showModalBottomSheet<int>(
+    final lastKind = await showModalBottomSheet<ItemKind>(
       context: context,
-      // Лист может занять больше половины экрана — иначе шесть предметов
-      // в него не влезают.
+      // Лист может занять больше половины экрана.
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (_) => _InventorySheet(game: game),
     );
-    return used ?? 0;
+    if (!mounted) return;
+    // Кормление даёт опыт — питомец мог дорасти до нового уровня.
+    await showLevelUpIfNeeded(context);
+    if (lastKind != null) {
+      _react(lastKind == ItemKind.food ? PetAnim.eat : PetAnim.happy);
+    }
   }
 
-  /// Кнопка переключения периода: «новый день», доход и бумажка с итогами.
+  /// «Новый день»: доход и бумажка с итогами, питомец сладко спал.
   Future<void> _nextDay() async {
     final summary = GameStateScope.read(context).nextDay();
     if (!mounted) return;
     await showDayPaper(context, summary);
-    // Огонёк показываем после бумажки — за диалогом его не было бы видно.
-    if (mounted) setState(() => _petSpark++);
+    _react(PetAnim.sleep);
   }
 
   @override
@@ -143,296 +119,292 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Center(child: Text('Питомец не найден 😢'));
     }
 
-    final hints = game.finnyHints();
+    final tip = game.finnyTip();
     final lesson = game.nextLesson;
     final retry = lesson != null && game.lessonsRetry.contains(lesson.id);
     final age = game.age;
+    final mood = pet.mood;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        if (game.pendingBonus > 0) ...[
+          _BonusBanner(
+            amount: game.pendingBonus,
+            petName: pet.name,
+            onClose: game.dismissBonus,
+          ),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Привет, ${game.nickname}!',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (age != null)
+              _Chip(text: '👦 ${PlayerProfile.labelFor(age)}'),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _Chip(text: '🪙 ${game.balance}', big: true)),
+            const SizedBox(width: 8),
+            Expanded(child: _Chip(text: '⭐ Ур. ${pet.level}', big: true)),
+            const SizedBox(width: 8),
+            Expanded(child: _Chip(text: '📅 ${game.day}', big: true)),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Питомец — главный герой экрана.
+        _PetStage(
+          pet: pet,
+          mood: mood,
+          skinLevel: pet.level,
+          reaction: _reaction,
+          reactionAnim: _reactionAnim,
+          onTap: _openBackpack,
+        ),
+        const SizedBox(height: 12),
+
+        if (tip != null) ...[
+          _TipCard(text: tip),
+          const SizedBox(height: 12),
+        ],
+
+        // Цель копилки — одна строка и полоска.
+        _GoalCard(
+          emoji: game.goalEmoji,
+          name: game.goalName,
+          progress: game.goalProgress,
+          savings: game.savings,
+          target: game.goalTarget,
+        ),
+        const SizedBox(height: 12),
+
+        if (lesson != null)
+          Card(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => openLesson(context, lesson),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: lesson.track.color.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(lesson.emoji,
+                          style: const TextStyle(fontSize: 28)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            lesson.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            retry
+                                ? '🔁 Повтори • +${lesson.reward} 🪙'
+                                : '${lesson.track.emoji} +${lesson.reward} 🪙',
+                            style: TextStyle(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        // ТЗ: тач-таргет не меньше 48x48dp.
+                        minimumSize: const Size(84, 48),
+                        backgroundColor: lesson.track.color,
+                      ),
+                      onPressed: () => openLesson(context, lesson),
+                      child: const Text('Решить'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 16),
+
+        KidsButton(
+          text: 'Следующий день',
+          icon: Icons.wb_sunny_outlined,
+          onPressed: _nextDay,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Доход за день: +${game.baseIncome} 🪙',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: KidsTheme.muted(context)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Сцена питомца: имя, этап, модель с эмоциями, фраза и статы.
+class _PetStage extends StatelessWidget {
+  final Pet pet;
+  final PetMood mood;
+  final int skinLevel;
+  final int reaction;
+  final PetAnim reactionAnim;
+  final VoidCallback onTap;
+
+  const _PetStage({
+    required this.pet,
+    required this.mood,
+    required this.skinLevel,
+    required this.reaction,
+    required this.reactionAnim,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final game = GameStateScope.of(context);
+    final look = PetLook.of(pet.type, pet.variant);
+    final skin = game.skin;
+    final tint = skin?.bgEnd ?? look.bgEnd;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            tint.withValues(alpha: KidsTheme.isDark(context) ? 0.35 : 0.28),
+            Theme.of(context).cardTheme.color ?? scheme.surface,
+          ],
+        ),
+        border: Border.all(color: scheme.outline),
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Приветствие: имя игрока и его возраст.
           Row(
             children: [
               Expanded(
                 child: Text(
-                  'Привет, ${game.nickname}!',
+                  pet.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              if (age != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: KidsTheme.pill(context),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    '👦 ${PlayerProfile.labelFor(age)}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: scheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
+              _Chip(text: pet.stage),
             ],
           ),
+          const SizedBox(height: 4),
+          // Фраза питомца — облачком над головой.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: _SpeechBubble(
+              key: ValueKey(mood),
+              text: '${mood.emoji} ${mood.phrase}',
+            ),
+          ),
+          Semantics(
+            button: true,
+            label: 'Питомец ${pet.name}. Открыть рюкзак',
+            child: GestureDetector(
+              onTap: onTap,
+              child: SparkOnAction(
+                trigger: reaction,
+                spread: 56,
+                child: PetModel(
+                  type: pet.type,
+                  variant: pet.variant,
+                  skin: skin,
+                  level: skinLevel,
+                  size: 176,
+                  mood: mood,
+                  reaction: reaction,
+                  reactionAnim: reactionAnim,
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
-
-          // Баланс • Уровень • День. Wrap, а не Row: на узких экранах
-          // плашки переносятся на вторую строку, а не сжимают текст.
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
+          Row(
             children: [
-              _Pill(emoji: '🪙', text: '${game.balance}'),
-              _Pill(emoji: '⭐', text: 'Ур. ${pet.level}'),
-              _Pill(emoji: '📅', text: 'День ${game.day}'),
+              Expanded(
+                child: StatMeter(
+                  emoji: '🍎',
+                  label: 'Сытость',
+                  value: pet.hunger,
+                  color: const Color(0xFF66BB6A),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StatMeter(
+                  emoji: '😊',
+                  label: 'Счастье',
+                  value: pet.happiness,
+                  color: const Color(0xFFFFB020),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StatMeter(
+                  emoji: '🧼',
+                  label: 'Чистота',
+                  value: pet.cleanliness,
+                  color: const Color(0xFF4FC3F7),
+                ),
+              ),
             ],
           ),
+          const SizedBox(height: 10),
+          StatMeter(
+            emoji: '✨',
+            label: 'Опыт',
+            value: pet.xp,
+            color: const Color(0xFFAB47BC),
+            wide: true,
+          ),
           const SizedBox(height: 12),
-
-          // Цель + накопления
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text('${game.goalEmoji} Цель: '),
-                      Expanded(
-                        child: Text(
-                          game.goalName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      Text('${(game.goalProgress * 100).round()}%'),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: game.goalProgress,
-                      minHeight: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Накоплено ${game.savings} из ${game.goalTarget} • '
-                    'осталось ${game.goalLeft}',
-                  ),
-                ],
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(48, 52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
+              onPressed: onTap,
+              icon: const Icon(Icons.backpack_outlined),
+              label: const Text('Рюкзак'),
             ),
-          ),
-          const SizedBox(height: 12),
-
-          // Питомец + статы
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          pet.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: KidsTheme.soft(context),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          pet.stage,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: scheme.onSurface,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: _onPetTap,
-                    child: SparkOnAction(
-                      trigger: _petSpark,
-                      spread: 52,
-                      child: PetAvatar(
-                        type: pet.type,
-                        variant: pet.variant,
-                        size: 150,
-                        moodEmoji: pet.moodEmoji,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    pet.moodText(),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Нажми на питомца, чтобы открыть рюкзачок 🎒',
-                    textAlign: TextAlign.center,
-                  ),
-                  const Divider(height: 24),
-                  StatBar(
-                    emoji: '🍎',
-                    label: 'Сытость',
-                    value: pet.hunger,
-                    color: const Color(0xFF66BB6A),
-                    onTap: () => _showSnack(pet.hunger <= 40
-                        ? '${pet.name} голоден!'
-                        : 'Сытость: ${pet.hunger}/100'),
-                  ),
-                  StatBar(
-                    emoji: '😊',
-                    label: 'Счастье',
-                    value: pet.happiness,
-                    color: const Color(0xFFFFB020),
-                    onTap: () =>
-                        _showSnack('Счастье: ${pet.happiness}/100'),
-                  ),
-                  StatBar(
-                    emoji: '🧼',
-                    label: 'Чистота',
-                    value: pet.cleanliness,
-                    color: const Color(0xFF4FC3F7),
-                    onTap: () =>
-                        _showSnack('Чистота: ${pet.cleanliness}/100'),
-                  ),
-                  StatBar(
-                    emoji: '✨',
-                    label: 'Опыт (XP)',
-                    value: pet.xp,
-                    color: const Color(0xFFAB47BC),
-                    onTap: () => _showSnack(
-                        'Уровень ${pet.level}: ${pet.xp}/100 XP'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Мягкое уведомление от Финни
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const FinnyAvatar(size: 56, waving: false),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      hints.first,
-                      style: const TextStyle(height: 1.35),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Следующее задание с дороги
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: lesson == null
-                  ? const Text(
-                      '🏆 Обе дороги пройдены! Ты супер!',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    )
-                  : Row(
-                      children: [
-                        Text(lesson.emoji,
-                            style: const TextStyle(fontSize: 34)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                retry
-                                    ? 'Повтори задание 🔁'
-                                    : '${lesson.track.emoji} '
-                                        '${lesson.track.title} • '
-                                        '${lesson.grade} класс',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                              ),
-                              Text(
-                                lesson.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text('+${lesson.reward} монет'),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            // ТЗ: тач-таргет не меньше 48x48dp.
-                            minimumSize: const Size(84, 48),
-                          ),
-                          onPressed: () => openLesson(context, lesson),
-                          child: const Text('Решить'),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          KidsButton(text: 'Следующий день 👉', onPressed: _nextDay),
-          const SizedBox(height: 8),
-          Text(
-            'Доход за день: +${game.baseIncome} монет',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -440,22 +412,189 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _Pill extends StatelessWidget {
-  final String emoji;
+class _SpeechBubble extends StatelessWidget {
   final String text;
 
-  const _Pill({required this.emoji, required this.text});
+  const _SpeechBubble({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: KidsTheme.pill(context),
         borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: Color(0x14000000), blurRadius: 8),
+        ],
       ),
       child: Text(
-        '$emoji $text',
+        text,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+    );
+  }
+}
+
+class _BonusBanner extends StatelessWidget {
+  final int amount;
+  final String petName;
+  final VoidCallback onClose;
+
+  const _BonusBanner({
+    required this.amount,
+    required this.petName,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFC857), Color(0xFFFF9F43)],
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const Text('🎁', style: TextStyle(fontSize: 26)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$petName рад тебя видеть! +$amount 🪙',
+              style: const TextStyle(
+                color: Color(0xFF4A2A00),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Закрыть',
+            onPressed: onClose,
+            icon: const Icon(Icons.close, color: Color(0xFF4A2A00)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TipCard extends StatelessWidget {
+  final String text;
+
+  const _TipCard({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: KidsTheme.soft(context),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const FinnyAvatar(size: 40, waving: false),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalCard extends StatelessWidget {
+  final String emoji;
+  final String name;
+  final double progress;
+  final int savings;
+  final int target;
+
+  const _GoalCard({
+    required this.emoji,
+    required this.name,
+    required this.progress,
+    required this.savings,
+    required this.target,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 32)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Text(
+                        '$savings / $target',
+                        style: TextStyle(color: KidsTheme.muted(context)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Плашка «🪙 60», «⭐ Ур. 2»: цвет — из темы, чтобы в тёмной не белеть.
+class _Chip extends StatelessWidget {
+  final String text;
+  final bool big;
+
+  const _Chip({required this.text, this.big = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: big ? 10 : 6),
+      alignment: big ? Alignment.center : null,
+      decoration: BoxDecoration(
+        color: KidsTheme.pill(context),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
@@ -467,6 +606,7 @@ class _Pill extends StatelessWidget {
 }
 
 /// Рюкзачок питомца: список предметов, «Дать» и «огонёк» на использованном.
+/// Закрывается с отделом последнего предмета — по нему питомец реагирует.
 ///
 /// Список берётся снимком на момент открытия и не «дёргается», когда
 /// предмет заканчивается: строка остаётся и показывает «закончился».
@@ -485,14 +625,14 @@ class _InventorySheetState extends State<_InventorySheet> {
       .toList();
 
   final Map<String, int> _sparks = {};
-  int _used = 0;
+  ItemKind? _lastKind;
   String? _lastEffect;
 
   void _give(ShopItem item) {
     final effect = widget.game.useItem(item.id);
     if (effect == null) return;
     setState(() {
-      _used += 1;
+      _lastKind = item.kind;
       _sparks[item.id] = (_sparks[item.id] ?? 0) + 1;
       _lastEffect = effect;
     });
@@ -501,7 +641,6 @@ class _InventorySheetState extends State<_InventorySheet> {
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
-    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
@@ -512,11 +651,6 @@ class _InventorySheetState extends State<_InventorySheet> {
             const Text(
               '🎒 Рюкзачок питомца',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Нажми «Дать», чтобы использовать предмет.',
-              style: TextStyle(color: scheme.onSurfaceVariant),
             ),
             if (_lastEffect != null) ...[
               const SizedBox(height: 10),
@@ -559,7 +693,7 @@ class _InventorySheetState extends State<_InventorySheet> {
             const SizedBox(height: 12),
             KidsButton(
               text: 'Готово ✅',
-              onPressed: () => Navigator.of(context).pop(_used),
+              onPressed: () => Navigator.of(context).pop(_lastKind),
             ),
           ],
         ),

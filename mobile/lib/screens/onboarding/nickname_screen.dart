@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/name_filter.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
@@ -40,8 +41,11 @@ class _NicknameScreenState extends State<NicknameScreen> {
 
   String get _clean => _controller.text.trim();
 
+  /// Мат и слова 18+ в имени не пропускаем.
+  bool get _blocked => _clean.isNotEmpty && !NameFilter.isAllowed(_clean);
+
   void _submit() {
-    if (_clean.isEmpty) return;
+    if (_clean.isEmpty || _blocked) return;
     FocusScope.of(context).unfocus();
     widget.onNext(_clean);
   }
@@ -69,9 +73,12 @@ class _NicknameScreenState extends State<NicknameScreen> {
                     maxLength: 15,
                     maxLengthEnforcement: MaxLengthEnforcement.enforced,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Твоё имя',
                       counterText: '',
+                      errorText: _blocked
+                          ? 'Такое имя не подойдёт — придумай другое'
+                          : null,
                     ),
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (_) => _submit(),
@@ -82,7 +89,7 @@ class _NicknameScreenState extends State<NicknameScreen> {
           ),
           KidsButton(
             text: 'Отлично! 🎉',
-            onPressed: _clean.isEmpty ? null : _submit,
+            onPressed: _clean.isEmpty || _blocked ? null : _submit,
           ),
           BackLink(onPressed: widget.onBack),
         ],

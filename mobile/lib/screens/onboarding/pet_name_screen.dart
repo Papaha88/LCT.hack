@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/names_data.dart';
+import '../../services/name_filter.dart';
 import '../../widgets/finny_avatar.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
@@ -43,6 +44,9 @@ class _PetNameScreenState extends State<PetNameScreen> {
 
   String get _clean => _controller.text.trim();
 
+  /// Мат и слова 18+ в имени не пропускаем.
+  bool get _blocked => _clean.isNotEmpty && !NameFilter.isAllowed(_clean);
+
   void _rollDice() {
     final current = _controller.text;
     var next = current;
@@ -57,7 +61,7 @@ class _PetNameScreenState extends State<PetNameScreen> {
   }
 
   void _submit() {
-    if (_clean.isEmpty) return;
+    if (_clean.isEmpty || _blocked) return;
     FocusScope.of(context).unfocus();
     widget.onNext(_clean);
   }
@@ -85,12 +89,14 @@ class _PetNameScreenState extends State<PetNameScreen> {
                         child: TextField(
                           controller: _controller,
                           maxLength: 15,
-                          maxLengthEnforcement:
-                              MaxLengthEnforcement.enforced,
+                          maxLengthEnforcement: MaxLengthEnforcement.enforced,
                           textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText: 'Имя питомца',
                             counterText: '',
+                            errorText: _blocked
+                                ? 'Такое имя не подойдёт — придумай другое'
+                                : null,
                           ),
                           onChanged: (_) => setState(() {}),
                           onSubmitted: (_) => _submit(),
@@ -108,8 +114,7 @@ class _PetNameScreenState extends State<PetNameScreen> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Center(
-                            child: Text('🎲',
-                                style: TextStyle(fontSize: 30)),
+                            child: Text('🎲', style: TextStyle(fontSize: 30)),
                           ),
                         ),
                       ),
@@ -121,7 +126,7 @@ class _PetNameScreenState extends State<PetNameScreen> {
           ),
           KidsButton(
             text: 'Готово ✅',
-            onPressed: _clean.isEmpty ? null : _submit,
+            onPressed: _clean.isEmpty || _blocked ? null : _submit,
           ),
           BackLink(onPressed: widget.onBack),
         ],

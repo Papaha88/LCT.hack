@@ -10,7 +10,7 @@ import 'package:finny_pet/screens/onboarding/age_screen.dart';
 import 'package:finny_pet/screens/onboarding/pet_color_screen.dart';
 import 'package:finny_pet/theme/kids_theme.dart';
 import 'package:finny_pet/widgets/action_spark.dart';
-import 'package:finny_pet/widgets/pet_avatar.dart';
+import 'package:finny_pet/widgets/pet_model.dart';
 
 import 'real_fonts.dart';
 
@@ -230,9 +230,9 @@ void main() {
     await tester.pumpWidget(FinnyApp(gameState: game));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byType(PetAvatar));
+    await tester.ensureVisible(find.byType(PetModel));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(PetAvatar));
+    await tester.tap(find.byType(PetModel));
     await tester.pumpAndSettle();
 
     expect(find.text('🎒 Рюкзачок питомца'), findsOneWidget);
@@ -268,13 +268,14 @@ void main() {
       findsOneWidget,
       reason: 'под листом должен появиться результат действия',
     );
-    expect(_spark(), findsOneWidget);
+    // Огонёк — на предмете и в шапке (огонёк серии вспыхивает на действие).
+    expect(_spark(), findsWidgets);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('Готово ✅'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('доволен'), findsOneWidget);
+    expect(find.text('🎒 Рюкзачок питомца'), findsNothing);
 
     // Даём снекбару уехать, чтобы тест не оставил висящий таймер.
     await tester.pump(const Duration(seconds: 5));

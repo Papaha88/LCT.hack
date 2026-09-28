@@ -65,9 +65,9 @@ class _QuestsScreenState extends State<QuestsScreen> {
         const SizedBox(height: 12),
         _AdviceCard(
           text: age == null
-              ? 'Начни с 1 класса — все задания открыты, выбирай любое!'
-              : 'Тебе ${PlayerProfile.labelFor(age)} — советую '
-                  '$recommended класс ⭐. Остальные задания тоже открыты!',
+              ? 'Начни с 1 класса. Открыто всё!'
+              : 'Для ${PlayerProfile.labelFor(age)} — $recommended класс ⭐. '
+                  'Открыто всё!',
         ),
         if (retry.isNotEmpty) ...[
           const SizedBox(height: 10),
@@ -202,7 +202,7 @@ class _RetryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '🔁 Повтори — и получишь монетки',
+              '🔁 Повтори',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),

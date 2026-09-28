@@ -4,6 +4,7 @@ import '../../app.dart';
 import '../../models/pet.dart';
 import '../../models/player_profile.dart';
 import '../../widgets/finny_avatar.dart';
+import '../dev/dev_screen.dart';
 import '../parent/parent_gate.dart';
 import '../parent/parent_screen.dart';
 
@@ -12,8 +13,28 @@ import '../parent/parent_screen.dart';
 ///
 /// Смена возраста и сброс прогресса живут в родительском режиме —
 /// туда пускаем только после «взрослых» примеров.
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  /// Версия внизу экрана. Семь нажатий на неё — режим разработчика.
+  static const String version = 'Версия 0.2.0';
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  /// Счётчик нажатий на версию (скрытый вход для разработчиков).
+  int _versionTaps = 0;
+
+  void _onVersionTap() {
+    _versionTaps++;
+    if (_versionTaps < 7) return;
+    _versionTaps = 0;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const DevScreen()),
+    );
+  }
 
   Future<void> _openParentMode(BuildContext context) async {
     final navigator = Navigator.of(context);
@@ -102,9 +123,8 @@ class SettingsScreen extends StatelessWidget {
                     builder: (dialogContext) => AlertDialog(
                       title: const Text('Финни 🐱'),
                       content: const Text(
-                        'Игра для детей 7–10+ лет: заботимся о питомце, '
-                        'решаем задания по математике и финансам и учимся '
-                        'управлять монетками!',
+                        'Заботимся о питомце, решаем задания и учимся '
+                        'управлять монетками.',
                       ),
                       actions: [
                         TextButton(
@@ -116,6 +136,21 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Обычная серая подпись — ничем не выдаёт, что на неё можно жать.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _onVersionTap,
+            child: SizedBox(
+              height: 48,
+              child: Center(
+                child: Text(
+                  SettingsScreen.version,
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+              ),
             ),
           ),
         ],

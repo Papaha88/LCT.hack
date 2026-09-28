@@ -6,7 +6,7 @@ import '../../models/pet.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
 import '../../widgets/kids_button.dart';
-import '../../widgets/pet_avatar.dart';
+import '../../widgets/pet_model.dart';
 
 /// Показывает экран нового уровня, если питомец только что вырос.
 ///
@@ -106,10 +106,13 @@ class _LevelUpScreenState extends State<LevelUpScreen>
       child: SparkOnAction(
         trigger: _sparkTrigger,
         spread: 96,
-        child: PetAvatar(
+        child: PetModel(
           type: widget.pet.type,
           variant: widget.pet.variant,
-          size: 140,
+          skin: GameStateScope.read(context).skin,
+          level: widget.event.toLevel,
+          size: 150,
+          reaction: 1,
         ),
       ),
     );
