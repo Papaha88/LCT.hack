@@ -1,20 +1,20 @@
-name: lct_hackathon_mobile
-description: LCT Hackathon Android app
-publish_to: "none"
-version: 0.1.0
+name: finny_pet
+description: Финни — детский финансовый питомец (7-11 лет). Онбординг, питомец, бюджет, задания, магазин, копилка.
+publish_to: 'none'
+version: 0.1.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.2.0
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
