@@ -1,118 +1,331 @@
 {
-  "version": "1.0.0",
-  "updated_at": "2026-09-21",
-  "currency": { "code": "coin", "title": "монетка", "emoji": "🪙" },
+  "version": "2.0.0",
+  "updated_at": "2026-09-29",
+  "source": "mobile/lib/models/game_state.dart",
+  "currency": {
+    "code": "coin",
+    "title": "монетка",
+    "emoji": "🪙"
+  },
+  "start": {
+    "balance": 60,
+    "inventory": [
+      {
+        "item_id": "milk",
+        "quantity": 1
+      },
+      {
+        "item_id": "soap",
+        "quantity": 1
+      },
+      {
+        "item_id": "ball",
+        "quantity": 1
+      }
+    ],
+    "pet_level": 1,
+    "pet_stats": 100,
+    "day": 1
+  },
   "income": {
-    "base_income_per_period": 50,
-    "daily_login_bonus": 15,
-    "course_income_multiplier": 2,
-    "max_education_level": 5,
+    "depends_on": "pet_level",
+    "base": 40,
+    "per_level": 10,
+    "explain": "Доход за день = 40 + уровень питомца × 10.",
+    "table": [
+      {
+        "level": 1,
+        "income": 50
+      },
+      {
+        "level": 2,
+        "income": 60
+      },
+      {
+        "level": 3,
+        "income": 70
+      },
+      {
+        "level": 4,
+        "income": 80
+      },
+      {
+        "level": 5,
+        "income": 90
+      }
+    ],
     "sources": [
-      { "id": "period_income", "title": "Доход за период", "explain": "Начисляется при переходе к новому периоду." },
-      { "id": "daily_bonus", "title": "Ежедневный бонус", "explain": "Первый вход за день." },
-      { "id": "quest_reward", "title": "Награда за задание", "explain": "Монетки за выполненное задание." },
-      { "id": "deposit_interest", "title": "Проценты по вкладу", "explain": "Начисляются при смене игрового года." },
-      { "id": "item_resale", "title": "Продажа украшения", "explain": "Возврат 70% от цены." }
+      {
+        "id": "day_income",
+        "title": "Доход за день",
+        "explain": "Начисляется кнопкой «Новый день», растёт с уровнем питомца."
+      },
+      {
+        "id": "daily_bonus",
+        "title": "Бонус за возвращение",
+        "explain": "Первый вход за календарный день."
+      },
+      {
+        "id": "lesson_reward",
+        "title": "Награда за задание",
+        "explain": "Только за первое верное решение, 5 + класс × 10 монет."
+      },
+      {
+        "id": "level_up",
+        "title": "Новый уровень питомца",
+        "explain": "Монетки за каждый новый уровень."
+      },
+      {
+        "id": "savings_withdraw",
+        "title": "Возврат из копилки",
+        "explain": "Не доход: монетки просто возвращаются в кошелёк."
+      }
     ]
   },
+  "daily_bonus": {
+    "coins": 15,
+    "once_per": "calendar_day"
+  },
+  "level_up": {
+    "xp_per_level": 100,
+    "coins_per_level": 25,
+    "restores_stats": true
+  },
+  "xp_rules": [
+    {
+      "id": "lesson_solved",
+      "xp": 10,
+      "explain": "Первое верное решение задания."
+    },
+    {
+      "id": "savings_deposit",
+      "xp": 5,
+      "explain": "Каждое пополнение копилки."
+    },
+    {
+      "id": "item_used",
+      "xp": 5,
+      "explain": "Использование предмета; у части товаров больше — см. effects.xp."
+    }
+  ],
+  "stats": [
+    {
+      "id": "satiety",
+      "title": "Сытость",
+      "emoji": "🍎",
+      "max": 100,
+      "decay_per_day": 15,
+      "low_threshold": 40
+    },
+    {
+      "id": "happiness",
+      "title": "Счастье",
+      "emoji": "😊",
+      "max": 100,
+      "decay_per_day": 10,
+      "low_threshold": 40
+    },
+    {
+      "id": "cleanliness",
+      "title": "Чистота",
+      "emoji": "🧼",
+      "max": 100,
+      "decay_per_day": 12,
+      "low_threshold": 40
+    }
+  ],
   "period": {
-    "periods_per_year": 12,
-    "demo_mode_periods": 5,
-    "demo_mode_skips_real_time": true
+    "title": "День",
+    "advance": "manual_button",
+    "skips_real_time": true,
+    "demo_mode_periods": 5
   },
-  "budget": {
-    "step": 5,
-    "alt_step": 10,
-    "allow_unallocated": true,
-    "unallocated_hint": "У тебя осталось {amount} монеток. Может, добавим их в копилку на мечту?",
-    "editable_until_confirmed": true,
-    "directions": [
-      {
-        "id": "mandatory",
-        "title": "Обязательные расходы",
-        "emoji": "🍎",
-        "categories": ["food", "hygiene", "equipment"],
-        "explain": "Еда и уход — без них питомцу плохо."
-      },
-      {
-        "id": "optional",
-        "title": "Необязательные расходы",
-        "emoji": "🎮",
-        "categories": ["toys", "decor"],
-        "explain": "Желаемое: можно купить позже и это не ошибка."
-      },
-      {
-        "id": "education",
-        "title": "Обучение",
-        "emoji": "📚",
-        "categories": ["education"],
-        "explain": "Вложение в себя: увеличивает будущий доход."
-      },
-      {
-        "id": "savings",
-        "title": "Накопления",
-        "emoji": "🐷",
-        "categories": [],
-        "explain": "Монетки, отложенные на мечту."
-      }
-    ]
-  },
-  "deposit": {
-    "annual_rate": 0.2,
-    "accrual": "on_year_change",
-    "min_amount": 5,
-    "quick_amounts": [10, 20, 50],
+  "savings": {
+    "quick_amounts": [
+      10,
+      25,
+      50
+    ],
+    "plan_quick_amount": 20,
+    "withdraw_amount": 10,
     "withdraw_requires_confirmation": true,
-    "explain": "Проценты начисляются на сумму, которая лежит на вкладе в момент смены игрового года."
+    "suggested_per_day": 25
   },
-  "pet": {
-    "stats": [
-      { "id": "satiety", "title": "Сытость", "emoji": "🍽", "max": 100, "decay_per_period": 20, "low_threshold": 40 },
-      { "id": "happiness", "title": "Счастье", "emoji": "😊", "max": 100, "decay_per_period": 15, "low_threshold": 30 },
-      { "id": "cleanliness", "title": "Чистота", "emoji": "🧼", "max": 100, "decay_per_period": 15, "low_threshold": 30 }
-    ],
-    "stages": [
-      { "id": "baby", "title": "Малыш", "order": 1, "min_xp": 0 },
-      { "id": "teen", "title": "Подросток", "order": 2, "min_xp": 100 },
-      { "id": "adult", "title": "Взрослый", "order": 3, "min_xp": 250 }
-    ],
-    "moods": [
-      { "id": "excited", "title": "В восторге", "emoji": "🤩", "min_average_stat": 85 },
-      { "id": "happy", "title": "Доволен", "emoji": "😊", "min_average_stat": 60 },
-      { "id": "neutral", "title": "Спокоен", "emoji": "🙂", "min_average_stat": 40 },
-      { "id": "sad", "title": "Грустит", "emoji": "😢", "min_average_stat": 0 }
-    ],
-    "xp_rules": [
-      { "id": "quest_completed", "xp": 10, "explain": "За выполненное задание." },
-      { "id": "mandatory_covered", "xp": 10, "explain": "Обязательные расходы закрыты за период." },
-      { "id": "plan_matches_fact", "xp": 15, "explain": "Факт совпал с планом (отклонение не больше 10%)." },
-      { "id": "savings_topped_up", "xp": 5, "explain": "В копилку добавлены монетки." }
-    ],
-    "purchase_blocks": [
-      {
-        "id": "hungry_block",
-        "when_stat": "satiety",
-        "lte": 40,
-        "blocked_categories": ["toys", "decor", "education"],
-        "message": "{pet_name} слишком голоден, чтобы играть или учиться! Сначала накорми его."
-      }
-    ]
+  "streak": {
+    "counts": "Дни подряд, в которые было хотя бы одно действие: кормление, покупка, копилка или задание.",
+    "resets_after_missed_day": true,
+    "coins_bonus": false
+  },
+  "player": {
+    "min_age": 7,
+    "max_age": 10,
+    "max_age_label": "10+"
   },
   "rules": {
     "negative_balance_forbidden": true,
-    "purchase_requires_confirmation": true,
+    "purchase_requires_confirmation": false,
     "savings_withdraw_requires_confirmation": true,
-    "plan_editable_until_confirmed": true,
     "quests_reward_coins": true,
-    "failure_creates_recovery_task": true,
-    "resale_rate": 0.7
+    "mistake_creates_retry_task": true,
+    "mistake_loses_progress": false
   },
   "messages": {
-    "not_enough_coins": "Ой, монеток пока не хватает! Чтобы купить {item}, нужно ещё {missing} 🪙.",
-    "not_enough_coins_followup": "Не переживай! Можно выполнить задание и заработать их прямо сейчас — или отложить покупку на следующий период.",
-    "hungry": "Я проголодался!",
-    "half_goal": "Ура, мы накопили половину на цель!",
-    "quest_waiting": "Давай выполним задание и получим монетки?",
-    "daily_bonus": "{pet_name} рад тебя видеть! +15 монет"
+    "goal_reached": "Цель «{goal}» накоплена! 🎉",
+    "retry_lesson": "Попробуем задание ещё раз? 🔁",
+    "lesson_waiting": "Реши задание — получишь монетки ⭐",
+    "streak_unlit": "Покорми питомца, реши задание или отложи монетки — и огонёк загорится."
+  },
+  "from_documents": {
+    "note": "Механики из документов команды (игровая экономика, ТЗ экранов), которых в приложении пока нет. Сервер отдаёт их как справочные значения; приложение ими не пользуется.",
+    "sources": [
+      "Игровая_экономика_Финни_редакция.docx",
+      "ТЗ_Питомец_Финни.docx"
+    ],
+    "courses": {
+      "start_income": 50,
+      "sequential": true,
+      "buy_once": true,
+      "items": [
+        {
+          "id": "course_finance_abc",
+          "title": "Азбука финансов",
+          "price": 20,
+          "education_level": 2,
+          "income_after": 60
+        },
+        {
+          "id": "course_savings_master",
+          "title": "Мастер накоплений",
+          "price": 40,
+          "education_level": 3,
+          "income_after": 75
+        },
+        {
+          "id": "course_future_deposit",
+          "title": "Вклад в будущее",
+          "price": 80,
+          "education_level": 4,
+          "income_after": 95
+        },
+        {
+          "id": "course_math_book",
+          "title": "Учебник математики",
+          "price": 160,
+          "education_level": 5,
+          "income_after": 120
+        }
+      ]
+    },
+    "deposit": {
+      "annual_rate": 0.2,
+      "interest_cap": 500,
+      "accrual": "on_year_change",
+      "quick_amounts": [
+        10,
+        20,
+        50
+      ],
+      "withdraw_requires_confirmation": true
+    },
+    "streak_bonuses": [
+      {
+        "days": 3,
+        "coins": 10,
+        "repeat": false
+      },
+      {
+        "days": 7,
+        "coins": 20,
+        "repeat": false
+      },
+      {
+        "days": 7,
+        "coins": 10,
+        "repeat": true
+      }
+    ],
+    "budget_plan": {
+      "step": 5,
+      "alt_step": 10,
+      "directions": [
+        "mandatory",
+        "optional",
+        "education",
+        "savings"
+      ],
+      "allow_unallocated": true,
+      "unallocated_hint": "У тебя осталось {amount} монеток. Может, добавим их в копилку на мечту?"
+    },
+    "decorations": {
+      "total": 20,
+      "rarities": [
+        {
+          "id": "common",
+          "title": "Обычные",
+          "count": 10,
+          "min_price": 10,
+          "max_price": 30
+        },
+        {
+          "id": "rare",
+          "title": "Редкие",
+          "count": 6,
+          "min_price": 40,
+          "max_price": 80
+        },
+        {
+          "id": "epic",
+          "title": "Эпические",
+          "count": 4,
+          "min_price": 100,
+          "max_price": 200
+        }
+      ],
+      "resale_rate": 0.7,
+      "sale_requires_confirmation": true
+    },
+    "functional_items": [
+      {
+        "id": "bowl",
+        "title": "Миска",
+        "price": 5
+      },
+      {
+        "id": "drinker",
+        "title": "Поилка",
+        "price": 15
+      },
+      {
+        "id": "bed",
+        "title": "Лежанка",
+        "price": 50
+      }
+    ],
+    "purchase_block": {
+      "when_stat": "satiety",
+      "lte": 40,
+      "blocked": [
+        "toys",
+        "education"
+      ],
+      "message": "{pet_name} слишком голоден, чтобы играть или учиться! Сначала накорми его."
+    },
+    "xp_stages": [
+      {
+        "id": "baby",
+        "title": "Малыш",
+        "min_xp": 0
+      },
+      {
+        "id": "student",
+        "title": "Ученик",
+        "min_xp": 100
+      },
+      {
+        "id": "explorer",
+        "title": "Исследователь",
+        "min_xp": 200
+      }
+    ]
   }
 }

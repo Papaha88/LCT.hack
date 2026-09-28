@@ -1,8 +1,9 @@
 """Справочники: каталог покупок, цели, задания, термины, питомцы, экономика.
 
 Только чтение. Контент одинаков для всех, персональных данных здесь нет,
-авторизация не нужна. Любой раздел можно скачать целиком и положить в
-локальный кэш — игровой цикл после этого работает офлайн (ТЗ 3.1).
+авторизация не нужна. Приложение к этим адресам не обращается — его контент
+зашит в код и работает офлайн (ТЗ 3.1). Здесь тот же контент в машиночитаемом
+виде: для проверки экспертом и для будущего обновления без пересборки.
 """
 
 from typing import Any
@@ -22,8 +23,8 @@ from app.schemas.content import (
     Goal,
     GoalsFile,
     ItemKind,
+    Lesson,
     PetsFile,
-    Quest,
     QuestsFile,
 )
 
@@ -92,13 +93,16 @@ def get_bundle(
     response_model=CatalogFile,
     responses=NOT_MODIFIED,
     summary="Каталог покупок",
-    description="Товары с ценой, категорией и влиянием на питомца (ТЗ 2.5.6).",
+    description=(
+        "Товары магазина приложения: цена, отдел, влияние на питомца (ТЗ 2.5.6) "
+        "и правило «скидки дня»."
+    ),
 )
 def get_catalog(
     request: Request,
     response: Response,
-    kind: ItemKind | None = Query(default=None, description="mandatory | optional | education"),
-    category: str | None = Query(default=None, description="food, hygiene, toys…"),
+    kind: ItemKind | None = Query(default=None, description="mandatory («надо») | optional"),
+    category: str | None = Query(default=None, description="food, hygiene, health, toys…"),
     content: ContentLibrary = Depends(get_content),
 ) -> Any:
     section = content.section("catalog")
@@ -124,7 +128,7 @@ def get_catalog(
     summary="Одна позиция каталога",
 )
 def get_catalog_item(
-    item_id: str = Path(description="Идентификатор товара, например food_apple"),
+    item_id: str = Path(description="Идентификатор товара, например apple"),
     content: ContentLibrary = Depends(get_content),
 ) -> CatalogItem:
     for item in content.catalog.items:
@@ -137,8 +141,8 @@ def get_catalog_item(
     "/goals",
     response_model=GoalsFile,
     responses=NOT_MODIFIED,
-    summary="Цели накопления",
-    description="Цель с ценой, ориентиром срока и наградой (ТЗ 2.5.7).",
+    summary="Цели копилки",
+    description="Готовые цели и правила своей цели: границы суммы, картинки (ТЗ 2.5.7).",
 )
 def get_goals(
     request: Request,
@@ -164,39 +168,39 @@ def get_goal(
     "/quests",
     response_model=QuestsFile,
     responses=NOT_MODIFIED,
-    summary="Задания по финансовой грамотности",
+    summary="Задания: дороги «Математика» и «Финансы»",
     description=(
-        "Минимум 6 заданий по 3 темам (ТЗ 2.5.8). Типы: `choice` — выбор с "
-        "последствиями, `allocation` — распределение бюджета, `ordering` — "
-        "порядок шагов. У каждого варианта есть объяснение — оно показывается "
-        "независимо от правильности ответа."
+        "Задания сгруппированы по дорогам и классам 1–4 (ТЗ 2.5.8). У каждого — "
+        "ситуация, четыре варианта ответа кнопками, разбор и справка. Награда — "
+        "монеты и опыт за первое верное решение; ошибка ничего не отнимает, "
+        "а превращает задание в задачу «Повтори» (ТЗ 2.5.9)."
     ),
 )
 def get_quests(
     request: Request,
     response: Response,
-    topic: str | None = Query(default=None, description="budget_planning, savings, payments"),
-    tag: str | None = Query(default=None, description="Например, recovery — задание-исправление"),
+    track: str | None = Query(default=None, description="math | finance"),
+    grade: int | None = Query(default=None, ge=1, le=4, description="Класс 1–4"),
     content: ContentLibrary = Depends(get_content),
 ) -> Any:
     section = content.section("quests")
     quests: QuestsFile = section.payload  # type: ignore[assignment]
     items = quests.items
-    if topic is not None:
-        items = [quest for quest in items if quest.topic == topic]
-    if tag is not None:
-        items = [quest for quest in items if tag in quest.tags]
+    if track is not None:
+        items = [lesson for lesson in items if lesson.track == track]
+    if grade is not None:
+        items = [lesson for lesson in items if lesson.grade == grade]
     payload = quests if items is quests.items else quests.model_copy(update={"items": items})
     return _respond(
         request,
         response,
         _section_etag(section),
         payload,
-        variant=f"topic={topic}&tag={tag}",
+        variant=f"track={track}&grade={grade}",
     )
 
 
-@router.get("/quests/{quest_id}", response_model=Quest, summary="Одно задание")
+@router.get("/quests/{quest_id}", response_model=Lesson, summary="Одно задание")
 def get_quest(
     quest_id: str,
     content: ContentLibrary = Depends(get_content),
@@ -217,7 +221,7 @@ def get_quest(
 def get_glossary(
     request: Request,
     response: Response,
-    topic: str | None = Query(default=None),
+    topic: str | None = Query(default=None, description="finance_1 | finance_2 | finance_3"),
     content: ContentLibrary = Depends(get_content),
 ) -> Any:
     section = content.section("glossary")
@@ -233,8 +237,11 @@ def get_glossary(
     "/pets",
     response_model=PetsFile,
     responses=NOT_MODIFIED,
-    summary="Внешний вид питомца",
-    description="Виды, окраски и готовые имена для онбординга: 3 × 3 = 9 комбинаций (ТЗ 2.6).",
+    summary="Питомец: виды, окраски, образы, этапы, настроение",
+    description=(
+        "Три вида × три окраски = 9 комбинаций (ТЗ 2.6), покупные образы, этапы "
+        "взросления по уровню, правила настроения и готовые имена для кубика."
+    ),
 )
 def get_pets(
     request: Request,
@@ -251,9 +258,10 @@ def get_pets(
     responses=NOT_MODIFIED,
     summary="Правила игровой экономики",
     description=(
-        "Доход за период, шаг планирования, ставка вклада, пороги стадий "
-        "питомца и обязательные правила. Вынесены в контент, чтобы баланс "
-        "игры менялся без правок кода приложения (ТЗ 2.5.14)."
+        "Константы приложения: старт, доход по уровню питомца, бонус за вход, "
+        "опыт и уровни, расход показателей за день, копилка, огонёк, "
+        "обязательные правила. Блок `from_documents` — механики из документов "
+        "команды, которых в приложении пока нет (вклад, курсы, украшения)."
     ),
 )
 def get_economy(

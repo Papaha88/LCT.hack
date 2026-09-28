@@ -26,64 +26,37 @@ def client():
 
 @pytest.fixture()
 def snapshot() -> dict:
-    """Минимально осмысленный снимок профиля: онбординг пройден, первый период."""
+    """Снимок профиля в форме сохранения приложения: пройден онбординг, третий день."""
     return {
-        "schema_version": "1.0",
+        "schema_version": "2.0",
         "revision": 1,
         "updated_at": "2026-09-21T10:00:00Z",
-        "current_period": 1,
-        "player": {"nickname": "Ксюша"},
+        "day": 3,
+        "player": {"nickname": "Ксюша", "age": 8},
         "pet": {
             "name": "Кекс",
             "species_id": "cat",
-            "palette_id": "sunny",
-            "stage_id": "baby",
+            "variant_id": "v2",
+            "level": 2,
             "xp": 20,
             "stats": {"satiety": 80, "happiness": 70, "cleanliness": 90},
         },
-        "wallet": {"balance": 35, "savings": 50, "deposit": 0},
-        "education": {"level": 1, "base_income": 50, "purchased_course_ids": []},
-        "goal": {"goal_id": "goal_scooter", "accumulated": 50},
-        "plan": {
-            "period": 1,
-            "available": 50,
-            "mandatory": 30,
-            "optional": 10,
-            "education": 0,
-            "savings": 10,
-            "confirmed": True,
+        "wallet": {"balance": 35, "savings": 50},
+        "goal": {"goal_id": "goal_bike", "title": "Велосипед", "emoji": "🚲", "target": 300},
+        "inventory": [
+            {"item_id": "milk", "quantity": 1},
+            {"item_id": "apple", "quantity": 2},
+        ],
+        "lessons": {
+            "solved": ["fin_1_food", "math_2_share"],
+            "retry": ["fin_2_budget"],
+            "mistakes": 1,
+            "last_solved_day": 2,
         },
-        "inventory": [{"item_id": "food_apple", "quantity": 1}],
-        "purchases": [
-            {
-                "item_id": "food_apple",
-                "price": 5,
-                "quantity": 1,
-                "period": 1,
-                "at": "2026-09-21T09:30:00Z",
-            }
-        ],
-        "quests": [
-            {
-                "quest_id": "quest_budget_priority",
-                "option_id": "opt_dinner",
-                "result": "correct",
-                "earned_coins": 10,
-                "earned_xp": 10,
-                "period": 1,
-                "at": "2026-09-21T09:40:00Z",
-            }
-        ],
-        "periods": [
-            {
-                "period": 1,
-                "income": 50,
-                "planned": {"mandatory": 30, "optional": 10, "savings": 10},
-                "actual": {"mandatory": 5, "optional": 0, "savings": 10},
-                "saved": 10,
-                "plan_followed": False,
-            }
-        ],
+        "skins": {"owned": ["cat_astronaut"], "equipped": "cat_astronaut"},
+        "streak": {"days": 3, "last_action_date": "2026-09-21"},
+        "last_bonus_date": "2026-09-21",
+        "settings": {"dark_theme": False},
     }
 
 

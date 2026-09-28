@@ -1,8 +1,8 @@
 """Тесты синхронизации прогресса.
 
 Проверяют две вещи: контракт обмена снимком (ревизии, конфликты, удаление)
-и правила ТЗ, которые сервер обязан не пропускать — отрицательный баланс и
-план больше доступного бюджета.
+и правила ТЗ, которые сервер обязан не пропускать — отрицательный баланс,
+показатели питомца вне 0…100, несогласованное состояние заданий и образов.
 """
 
 from tests.conftest import PROFILE_ID
@@ -28,7 +28,8 @@ def test_download_returns_same_snapshot(client, snapshot):
     assert body["revision"] == 1
     assert body["snapshot"]["pet"]["name"] == "Кекс"
     assert body["snapshot"]["wallet"]["balance"] == 35
-    assert body["snapshot"]["quests"][0]["quest_id"] == "quest_budget_priority"
+    assert body["snapshot"]["lessons"]["solved"] == ["fin_1_food", "math_2_share"]
+    assert body["snapshot"]["pet"]["variant_id"] == "v2"
 
 
 def test_download_unknown_profile_is_404(client):
@@ -87,14 +88,38 @@ def test_negative_balance_rejected(client, snapshot):
     assert client.put(URL, json=snapshot).status_code == 422
 
 
-def test_plan_over_budget_rejected(client, snapshot):
-    """ТЗ 2.5.5: распределение не может превышать доступный бюджет."""
-    snapshot["plan"]["mandatory"] = 100
+def test_equipped_skin_must_be_owned(client, snapshot):
+    """Надеть можно только купленный образ."""
+    snapshot["skins"] = {"owned": [], "equipped": "cat_astronaut"}
 
     response = client.put(URL, json=snapshot)
 
     assert response.status_code == 422
-    assert "план" in response.text.lower() or "бюджет" in response.text.lower()
+    assert "образ" in response.text
+
+
+def test_solved_lesson_cannot_be_in_retry(client, snapshot):
+    snapshot["lessons"]["retry"] = ["fin_1_food"]
+
+    assert client.put(URL, json=snapshot).status_code == 422
+
+
+def test_age_outside_app_range_rejected(client, snapshot):
+    """В приложении возраст 7, 8, 9 или 10 («10+»)."""
+    snapshot["player"]["age"] = 12
+
+    assert client.put(URL, json=snapshot).status_code == 422
+
+
+def test_custom_goal_limits(client, snapshot):
+    """Своя цель — от 50 до 5000 монет, как в приложении."""
+    snapshot["goal"] = {"goal_id": None, "title": "Лего", "emoji": "🧸", "target": 10}
+
+    assert client.put(URL, json=snapshot).status_code == 422
+
+    snapshot["goal"]["target"] = 400
+    body = client.put(URL, json=snapshot).json()
+    assert body["warnings"] == [], "своя цель без goal_id — не предупреждение"
 
 
 def test_broken_pet_stats_rejected(client, snapshot):
@@ -106,13 +131,23 @@ def test_broken_pet_stats_rejected(client, snapshot):
 def test_unknown_content_ids_become_warnings(client, snapshot):
     """Незнакомый id — не повод терять прогресс, только предупреждение."""
     snapshot["goal"]["goal_id"] = "goal_spaceship"
-    snapshot["purchases"][0]["item_id"] = "food_unknown"
+    snapshot["inventory"].append({"item_id": "food_unknown", "quantity": 1})
+    snapshot["lessons"]["solved"].append("quest_budget_plan_60")
+    snapshot["pet"]["variant_id"] = "sunny"
 
     body = client.put(URL, json=snapshot).json()
 
     codes = {warning["code"] for warning in body["warnings"]}
-    assert codes == {"unknown_goal", "unknown_item"}
+    assert codes == {"unknown_goal", "unknown_item", "unknown_lesson", "unknown_variant"}
     assert client.get(URL).status_code == 200, "прогресс всё равно сохранён"
+
+
+def test_skin_of_other_species_is_warning(client, snapshot):
+    snapshot["pet"]["species_id"] = "dog"
+
+    body = client.put(URL, json=snapshot).json()
+
+    assert [warning["code"] for warning in body["warnings"]] == ["skin_species_mismatch"]
 
 
 def test_delete_removes_server_copy(client, snapshot):

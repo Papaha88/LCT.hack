@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "Финни — API справочников и прогресса"
-    app_version: str = "1.0.0"
+    app_version: str = "2.0.0"
 
     # По умолчанию SQLite-файл рядом с приложением: бэкенд поднимается одной
     # командой без Docker. В docker-compose подставляется Postgres.
