@@ -1,5 +1,6 @@
-# Впишите GitHub-логины разработчиков вместо плейсхолдеров.
-# Тогда GitHub будет автоматически запрашивать нужного человека в ревьюеры PR.
+# Ревьюеры по умолчанию для pull request.
+# Побеждает последнее совпавшее правило, поэтому общее правило — первым.
 
-/backend/   @kirill-github-login
-/mobile/    @danya-github-login
+*           @SilMax-Lang
+/mobile/    @dancheck557 @kslavgorodskii-web
+/backend/   @kslavgorodskii-web
