@@ -1,5 +1,5 @@
 name: finny_pet
-description: Финни — детский финансовый питомец (7-11 лет). Онбординг, питомец, бюджет, задания, магазин, копилка.
+description: Финни — детский финансовый питомец (7–10+ лет). Онбординг, питомец, бюджет, задания, магазин, копилка.
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -18,3 +18,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/finny.jpg

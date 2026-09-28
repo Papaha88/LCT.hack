@@ -3,7 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../data/quests_data.dart';
+import '../data/goals_data.dart';
+import '../data/lessons_data.dart';
 import '../data/shop_data.dart';
 import 'pet.dart';
 import 'player_profile.dart';
@@ -92,6 +93,23 @@ class DaySummary {
   }
 }
 
+/// Итог ответа на задание с дороги.
+class LessonResult {
+  final bool correct;
+
+  /// Монеты начислены только за первое верное решение.
+  final int reward;
+
+  /// Задание уже было решено раньше — награды нет, это повторение.
+  final bool alreadySolved;
+
+  const LessonResult({
+    required this.correct,
+    required this.reward,
+    required this.alreadySolved,
+  });
+}
+
 /// Общее состояние игры: профиль, питомец, деньги, цель,
 /// задания, инвентарь, периоды.
 ///
@@ -109,8 +127,9 @@ class GameState extends ChangeNotifier {
 
   /// Монетки в копилке.
   int savings = 0;
-  String goalName = 'Велосипед';
-  int goalTarget = 300;
+  String goalName = defaultGoal.title;
+  String goalEmoji = defaultGoal.emoji;
+  int goalTarget = defaultGoal.price;
 
   /// Текущий период («День N»).
   int day = 1;
@@ -125,10 +144,18 @@ class GameState extends ChangeNotifier {
   /// id предмета -> количество.
   Map<String, int> inventory = {'milk': 1, 'soap': 1, 'ball': 1};
 
-  Set<String> questsDone = {};
+  /// Решённые задания с дорог «Математика» и «Финансы».
+  Set<String> lessonsSolved = {};
 
-  /// День выдачи текущего активного задания (для подсказки «висит > 1 периода»).
-  int questGivenDay = 1;
+  /// Временные задачи «Повтори»: задания, где ребёнок ошибся. Ошибка
+  /// не отнимает прогресс — задание просто просит попробовать ещё раз.
+  Set<String> lessonsRetry = {};
+
+  /// Сколько всего было ошибок — для родительского режима.
+  int lessonMistakes = 0;
+
+  /// День последнего решённого задания (для подсказки «давно не решали»).
+  int lessonGivenDay = 1;
 
   /// Дата последнего ежедневного бонуса (yyyy-MM-dd).
   String? lastBonusDate;
@@ -162,12 +189,32 @@ class GameState extends ChangeNotifier {
     return left < 0 ? 0 : left;
   }
 
-  Quest? get activeQuest {
-    for (final q in questsCatalog) {
-      if (!questsDone.contains(q.id)) return q;
+  /// Следующее задание, которое советует Финни: сначала «Повтори»,
+  /// потом — нерешённое своего уровня, потом — любое нерешённое.
+  Lesson? get nextLesson {
+    for (final id in lessonsRetry) {
+      final lesson = lessonById(id);
+      if (lesson != null) return lesson;
+    }
+    for (final track in LessonTrack.values) {
+      final grade = recommendedGrade(age, track);
+      for (final l in lessonsOf(track)) {
+        if (l.grade == grade && !lessonsSolved.contains(l.id)) return l;
+      }
+    }
+    for (final l in lessonsCatalog) {
+      if (!lessonsSolved.contains(l.id)) return l;
     }
     return null;
   }
+
+  /// Сколько заданий решено на дороге.
+  int solvedOn(LessonTrack track) =>
+      lessonsOf(track).where((l) => lessonsSolved.contains(l.id)).length;
+
+  /// Цена предмета с учётом «скидки дня».
+  int priceOf(ShopItem item) =>
+      item.id == dealOfDay(day).id ? dealPrice(item) : item.price;
 
   String get nickname => profile?.nickname ?? 'Друг';
 
@@ -213,12 +260,15 @@ class GameState extends ChangeNotifier {
     );
     balance = 60;
     savings = 0;
-    goalName = 'Велосипед';
-    goalTarget = 300;
+    goalName = defaultGoal.title;
+    goalEmoji = defaultGoal.emoji;
+    goalTarget = defaultGoal.price;
     day = 1;
     inventory = {'milk': 1, 'soap': 1, 'ball': 1};
-    questsDone = {};
-    questGivenDay = 1;
+    lessonsSolved = {};
+    lessonsRetry = {};
+    lessonMistakes = 0;
+    lessonGivenDay = 1;
     lastBonusDate = _today();
     pendingLevelUp = null;
     onboardingDone = true;
@@ -276,8 +326,9 @@ class GameState extends ChangeNotifier {
   /// Купить предмет в рюкзачок. False — не хватило монет.
   bool buyItem(String itemId) {
     final item = shopCatalog.firstWhere((e) => e.id == itemId);
-    if (balance < item.price) return false;
-    balance -= item.price;
+    final price = priceOf(item);
+    if (balance < price) return false;
+    balance -= price;
     inventory[itemId] = (inventory[itemId] ?? 0) + 1;
     notifyListeners();
     save();
@@ -312,11 +363,20 @@ class GameState extends ChangeNotifier {
     save();
   }
 
-  void updateGoal(String name, int target) {
-    if (name.trim().isNotEmpty) goalName = name.trim();
-    if (target >= 50) goalTarget = target;
+  /// Сменить цель копилки: готовую из списка или свою.
+  /// Накопленное остаётся в копилке — меняется только то, на что копим.
+  /// False — цель не подходит (пустое название или слишком мало монет).
+  bool updateGoal(String name, int target, {String? emoji}) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || target < minGoalTarget || target > maxGoalTarget) {
+      return false;
+    }
+    goalName = trimmed;
+    goalTarget = target;
+    if (emoji != null && emoji.isNotEmpty) goalEmoji = emoji;
     notifyListeners();
     save();
+    return true;
   }
 
   /// Возраст меняется в настройках — ребёнок растёт, а игра остаётся.
@@ -328,16 +388,49 @@ class GameState extends ChangeNotifier {
     save();
   }
 
-  bool completeQuest(String id) {
-    if (questsDone.contains(id)) return false;
-    final quest = questsCatalog.firstWhere((e) => e.id == id);
-    questsDone.add(id);
-    balance += quest.reward;
-    _addXp(10);
-    questGivenDay = day;
+  /// Ответ на задание с дороги.
+  ///
+  /// Верно в первый раз — монеты и опыт. Ошибка ничего не отнимает:
+  /// задание становится временной задачей «Повтори», пока его не решат.
+  LessonResult answerLesson(String id, int choice) {
+    final lesson = lessonById(id);
+    if (lesson == null) {
+      return const LessonResult(
+          correct: false, reward: 0, alreadySolved: false);
+    }
+    final already = lessonsSolved.contains(id);
+    final correct = choice == lesson.correct;
+    var reward = 0;
+    if (correct) {
+      lessonsRetry.remove(id);
+      if (!already) {
+        lessonsSolved.add(id);
+        reward = lesson.reward;
+        balance += reward;
+        _addXp(lessonXp);
+        lessonGivenDay = day;
+      }
+    } else if (!already) {
+      lessonsRetry.add(id);
+      lessonMistakes += 1;
+    }
     notifyListeners();
     save();
-    return true;
+    return LessonResult(
+      correct: correct,
+      reward: reward,
+      alreadySolved: already,
+    );
+  }
+
+  /// Родительский режим: пройти дороги заново (монеты и питомец остаются).
+  void resetLessons() {
+    lessonsSolved = {};
+    lessonsRetry = {};
+    lessonMistakes = 0;
+    lessonGivenDay = day;
+    notifyListeners();
+    save();
   }
 
   /// Переход к следующему периоду («новый день»).
@@ -390,8 +483,10 @@ class GameState extends ChangeNotifier {
     } else if (goalProgress >= 0.5) {
       hints.add('Ура, мы накопили половину на цель! 🎉');
     }
-    if (activeQuest != null && day - questGivenDay > 1) {
-      hints.add('Давай выполним задание и получим монетки? ⭐');
+    if (lessonsRetry.isNotEmpty) {
+      hints.add('Давай попробуем ещё раз решить задание? У тебя получится! 🔁');
+    } else if (nextLesson != null && day - lessonGivenDay > 1) {
+      hints.add('Давай решим задание на дороге и получим монетки? ⭐');
     }
     if (hints.isEmpty) {
       hints.add('Ты молодец! Продолжай заботиться о ${p.name} 💛');
@@ -408,13 +503,16 @@ class GameState extends ChangeNotifier {
         'balance': balance,
         'savings': savings,
         'goalName': goalName,
+        'goalEmoji': goalEmoji,
         'goalTarget': goalTarget,
         'day': day,
         'onboardingDone': onboardingDone,
         'isDark': isDark,
         'inventory': inventory,
-        'questsDone': questsDone.toList(),
-        'questGivenDay': questGivenDay,
+        'lessonsSolved': lessonsSolved.toList(),
+        'lessonsRetry': lessonsRetry.toList(),
+        'lessonMistakes': lessonMistakes,
+        'lessonGivenDay': lessonGivenDay,
         'lastBonusDate': lastBonusDate,
       };
       await prefs.setString(_prefsKey, jsonEncode(data));
@@ -450,7 +548,9 @@ class GameState extends ChangeNotifier {
       savings = readInt('savings', 0);
       final g = decoded['goalName'];
       if (g is String && g.isNotEmpty) goalName = g;
-      goalTarget = readInt('goalTarget', 300);
+      final ge = decoded['goalEmoji'];
+      if (ge is String && ge.isNotEmpty) goalEmoji = ge;
+      goalTarget = readInt('goalTarget', defaultGoal.price);
       day = readInt('day', 1);
       onboardingDone = decoded['onboardingDone'] == true;
       isDark = decoded['isDark'] == true;
@@ -464,11 +564,20 @@ class GameState extends ChangeNotifier {
       }
       if (inv.isNotEmpty) inventory = inv;
 
-      final rawQuests = decoded['questsDone'];
-      if (rawQuests is List) {
-        questsDone = rawQuests.whereType<String>().toSet();
+      Set<String> readIds(String key) {
+        final raw = decoded[key];
+        if (raw is! List) return {};
+        // Задания, которых больше нет в каталоге, просто пропускаем.
+        return raw
+            .whereType<String>()
+            .where((id) => lessonById(id) != null)
+            .toSet();
       }
-      questGivenDay = readInt('questGivenDay', 1);
+
+      lessonsSolved = readIds('lessonsSolved');
+      lessonsRetry = readIds('lessonsRetry')..removeAll(lessonsSolved);
+      lessonMistakes = readInt('lessonMistakes', 0);
+      lessonGivenDay = readInt('lessonGivenDay', 1);
       final lb = decoded['lastBonusDate'];
       if (lb is String) lastBonusDate = lb;
     } catch (_) {
@@ -486,15 +595,18 @@ class GameState extends ChangeNotifier {
     pet = null;
     balance = 60;
     savings = 0;
-    goalName = 'Велосипед';
-    goalTarget = 300;
+    goalName = defaultGoal.title;
+    goalEmoji = defaultGoal.emoji;
+    goalTarget = defaultGoal.price;
     day = 1;
     onboardingDone = false;
     isDark = false;
     justFinishedOnboarding = false;
     inventory = {};
-    questsDone = {};
-    questGivenDay = 1;
+    lessonsSolved = {};
+    lessonsRetry = {};
+    lessonMistakes = 0;
+    lessonGivenDay = 1;
     lastBonusDate = null;
     pendingLevelUp = null;
     notifyListeners();

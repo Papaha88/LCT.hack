@@ -3,72 +3,25 @@ import 'package:flutter/material.dart';
 import '../../app.dart';
 import '../../models/pet.dart';
 import '../../models/player_profile.dart';
+import '../../widgets/finny_avatar.dart';
+import '../parent/parent_gate.dart';
+import '../parent/parent_screen.dart';
 
-/// Настройки: профиль (имя, возраст), сброс прогресса, о приложении.
+/// Настройки: профиль, родительский режим, о приложении.
 /// Открываются шестерёнкой в AppBar (не занимают вкладку навигации).
+///
+/// Смена возраста и сброс прогресса живут в родительском режиме —
+/// туда пускаем только после «взрослых» примеров.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  /// Возраст меняется после онбординга — ребёнок растёт, а игра остаётся.
-  Future<void> _editAge(BuildContext context) async {
-    final game = GameStateScope.read(context);
-    final current = game.age;
-    final picked = await showDialog<int>(
-      context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('👦 Сколько тебе лет?'),
-        children: PlayerProfile.ageChoices
-            .map(
-              (age) => SimpleDialogOption(
-                onPressed: () => Navigator.of(dialogContext).pop(age),
-                // Галочка занимает место всегда, строки не «прыгают».
-                // Иконкой, а не символом «✓»: его нет в Roboto, и вместо
-                // галочки получался пустой квадрат.
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      child: age == current
-                          ? const Icon(Icons.check, size: 18)
-                          : null,
-                    ),
-                    Text('$age лет', style: const TextStyle(fontSize: 18)),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-    if (picked != null) game.updateAge(picked);
-  }
-
-  Future<void> _confirmReset(BuildContext context) async {
-    final game = GameStateScope.read(context);
+  Future<void> _openParentMode(BuildContext context) async {
     final navigator = Navigator.of(context);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Начать заново?'),
-        content: const Text(
-            'Питомец и все монетки исчезнут. Точно-точно?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Ой, нет!'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Да, заново'),
-          ),
-        ],
-      ),
+    final ok = await showParentGate(context);
+    if (!ok) return;
+    await navigator.push(
+      MaterialPageRoute<void>(builder: (_) => const ParentScreen()),
     );
-    if (ok == true) {
-      await game.reset();
-      // Приложение само переключится на онбординг, стек чистим:
-      navigator.popUntil((route) => route.isFirst);
-    }
   }
 
   @override
@@ -86,45 +39,43 @@ class SettingsScreen extends StatelessWidget {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    '👋 ${game.nickname}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
+                  const FinnyAvatar(size: 72, waving: false),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '👋 ${game.nickname}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
                           age == null
                               ? '👦 Возраст не указан'
-                              : '👦 Возраст: $age лет',
+                              : '👦 Возраст: ${PlayerProfile.labelFor(age)}',
                         ),
-                      ),
-                      TextButton.icon(
-                        onPressed: () => _editAge(context),
-                        icon: const Text('✏️'),
-                        label: const Text('Изменить'),
-                      ),
-                    ],
+                        if (pet != null) ...[
+                          Text(
+                            '${pet.type.emoji} ${pet.name} • ${pet.stage}',
+                            style: TextStyle(color: scheme.onSurfaceVariant),
+                          ),
+                          Text(
+                            '📅 День ${game.day} • 🪙 ${game.balance} • '
+                            '🐷 ${game.savings}',
+                            style: TextStyle(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  if (pet != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '${pet.type.emoji} Питомец: ${pet.name} • ${pet.stage}',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
-                    Text(
-                      '📅 День ${game.day} • 🪙 ${game.balance} • '
-                      '🐷 ${game.savings}',
-                      style: TextStyle(color: scheme.onSurfaceVariant),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -134,34 +85,35 @@ class SettingsScreen extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Text('ℹ️',
+                  leading: const Text('👨‍👩‍👧',
                       style: TextStyle(fontSize: 24)),
+                  title: const Text('Родительский режим'),
+                  subtitle: const Text(
+                      'Прогресс, возраст, сброс. Вход — через примеры'),
+                  trailing: const Icon(Icons.lock_outline),
+                  onTap: () => _openParentMode(context),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Text('ℹ️', style: TextStyle(fontSize: 24)),
                   title: const Text('О приложении'),
                   onTap: () => showDialog<void>(
                     context: context,
                     builder: (dialogContext) => AlertDialog(
-                      title: const Text('Финни 🐧'),
+                      title: const Text('Финни 🐱'),
                       content: const Text(
-                        'Игра для детей 7–11 лет: заботимся о питомце '
-                        'и учимся управлять монетками!',
+                        'Игра для детей 7–10+ лет: заботимся о питомце, '
+                        'решаем задания по математике и финансам и учимся '
+                        'управлять монетками!',
                       ),
                       actions: [
                         TextButton(
-                          onPressed: () =>
-                              Navigator.of(dialogContext).pop(),
+                          onPressed: () => Navigator.of(dialogContext).pop(),
                           child: const Text('Понятно'),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Text('🔄',
-                      style: TextStyle(fontSize: 24)),
-                  title: const Text('Начать игру заново'),
-                  subtitle: const Text('Стереть питомца и монетки'),
-                  onTap: () => _confirmReset(context),
                 ),
               ],
             ),

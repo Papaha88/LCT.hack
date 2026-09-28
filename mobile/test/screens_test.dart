@@ -76,14 +76,17 @@ void main() {
     expect(restored.pet?.name, 'Барсик');
   });
 
-  test('возраст вне 7–11 лет не принимается', () async {
+  test('возраст вне 7–10+ лет не принимается', () async {
     final game = await _readyGame(age: 9);
 
     game.updateAge(3);
     expect(game.age, 9, reason: 'слишком маленький возраст не должен сохраняться');
 
     game.updateAge(11);
-    expect(game.age, 11);
+    expect(game.age, 9, reason: 'старше 10 — это вариант «10+», а не 11');
+
+    game.updateAge(10);
+    expect(game.age, 10);
   });
 
   testWidgets('главный экран показывает возраст игрока', (tester) async {
@@ -217,11 +220,11 @@ void main() {
     expect(_spark(), findsNothing, reason: 'огонёк должен гаснуть сам');
   });
 
-  testWidgets('рюкзачок: шесть предметов не переполняют лист и прокручиваются',
+  testWidgets('рюкзачок: весь магазин не переполняет лист и прокручивается',
       (tester) async {
     await _narrow(tester);
     final game = await _readyGame();
-    // Худший случай: в рюкзачке лежат все шесть позиций магазина.
+    // Худший случай: в рюкзачке лежат все позиции магазина.
     game.inventory = {for (final item in shopCatalog) item.id: 2};
 
     await tester.pumpWidget(FinnyApp(gameState: game));

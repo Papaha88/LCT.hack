@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
 import '../level_up/level_up_screen.dart';
+import 'goal_sheet.dart';
 
 /// Банк-копилка: цель, прогресс, пополнение и снятие.
 class BankScreen extends StatefulWidget {
@@ -56,58 +56,16 @@ class _BankScreenState extends State<BankScreen> {
 
   Future<void> _editGoal() async {
     final game = GameStateScope.read(context);
-    final nameController = TextEditingController(text: game.goalName);
-    final targetController =
-        TextEditingController(text: game.goalTarget.toString());
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('🎯 Моя цель'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              maxLength: 20,
-              decoration: const InputDecoration(
-                labelText: 'О чём мечтаешь?',
-                counterText: '',
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: targetController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Сколько монет нужно? (мин. 50)',
-              ),
-            ),
-          ],
+    final changed = await showGoalSheet(context, game);
+    if (!mounted || !changed) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('Новая цель: ${game.goalEmoji} ${game.goalName}!'),
+          behavior: SnackBarBehavior.floating,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
-
-    final name = nameController.text;
-    final target =
-        int.tryParse(targetController.text) ?? game.goalTarget;
-    nameController.dispose();
-    targetController.dispose();
-
-    if (result == true) {
-      game.updateGoal(name, target);
-    }
+      );
   }
 
   @override
@@ -135,7 +93,7 @@ class _BankScreenState extends State<BankScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Цель: ${game.goalName}',
+                    'Цель: ${game.goalEmoji} ${game.goalName}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 18,
@@ -158,10 +116,25 @@ class _BankScreenState extends State<BankScreen> {
                             'осталось ${game.goalLeft}',
                     textAlign: TextAlign.center,
                   ),
-                  TextButton.icon(
+                  if (!reached && game.goalLeft > 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Если откладывать по 25 🪙 в день — ещё '
+                      '${(game.goalLeft + 24) ~/ 25} дн.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: KidsTheme.muted(context)),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                     onPressed: _editGoal,
                     icon: const Text('✏️'),
-                    label: const Text('Изменить цель'),
+                    label: Text(reached
+                        ? 'Выбрать новую цель'
+                        : 'Изменить цель'),
                   ),
                 ],
               ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../data/lessons_data.dart';
 import '../../data/shop_data.dart';
 import '../../models/game_state.dart';
+import '../../models/player_profile.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
 import '../../widgets/day_paper.dart';
@@ -11,6 +13,7 @@ import '../../widgets/kids_button.dart';
 import '../../widgets/pet_avatar.dart';
 import '../../widgets/stat_bar.dart';
 import '../level_up/level_up_screen.dart';
+import '../quests/quests_screen.dart';
 
 /// Главный экран: приветствие с возрастом, баланс, уровень, цель, питомец,
 /// статы, подсказка Финни, активное задание, смена периода.
@@ -141,7 +144,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final hints = game.finnyHints();
-    final quest = game.activeQuest;
+    final lesson = game.nextLesson;
+    final retry = lesson != null && game.lessonsRetry.contains(lesson.id);
     final age = game.age;
 
     return SingleChildScrollView(
@@ -173,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    '👦 $age лет',
+                    '👦 ${PlayerProfile.labelFor(age)}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -209,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Row(
                     children: [
-                      const Text('🎯 Цель: '),
+                      Text('${game.goalEmoji} Цель: '),
                       Expanded(
                         child: Text(
                           game.goalName,
@@ -367,18 +371,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Активное задание
+          // Следующее задание с дороги
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: quest == null
+              child: lesson == null
                   ? const Text(
-                      '🎉 Все задания выполнены! Ты супер!',
+                      '🏆 Обе дороги пройдены! Ты супер!',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     )
                   : Row(
                       children: [
-                        Text(quest.emoji,
+                        Text(lesson.emoji,
                             style: const TextStyle(fontSize: 34)),
                         const SizedBox(width: 12),
                         Expanded(
@@ -387,20 +391,35 @@ class _HomeScreenState extends State<HomeScreen> {
                                 CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Активное задание ⭐',
+                                retry
+                                    ? 'Повтори задание 🔁'
+                                    : '${lesson.track.emoji} '
+                                        '${lesson.track.title} • '
+                                        '${lesson.grade} класс',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: scheme.onSurfaceVariant,
                                 ),
                               ),
                               Text(
-                                quest.title,
+                                lesson.title,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              Text('+${quest.reward} монет'),
+                              Text('+${lesson.reward} монет'),
                             ],
                           ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            // ТЗ: тач-таргет не меньше 48x48dp.
+                            minimumSize: const Size(84, 48),
+                          ),
+                          onPressed: () => openLesson(context, lesson),
+                          child: const Text('Решить'),
                         ),
                       ],
                     ),
