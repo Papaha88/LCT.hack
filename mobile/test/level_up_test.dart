@@ -6,7 +6,7 @@ import 'package:finny_pet/models/game_state.dart';
 import 'package:finny_pet/models/pet.dart';
 import 'package:finny_pet/screens/level_up/level_up_screen.dart';
 import 'package:finny_pet/theme/kids_theme.dart';
-import 'package:finny_pet/widgets/pet_avatar.dart';
+import 'package:finny_pet/widgets/pet_model.dart';
 
 import 'game_fixture.dart';
 import 'real_fonts.dart';
@@ -109,7 +109,7 @@ void main() {
     expect(find.text('Уровень 2'), findsOneWidget);
     expect(find.text('+$levelUpCoins'), findsOneWidget);
     expect(find.text('Барсик вырос: ${Pet.stageForLevel(2)}'), findsOneWidget);
-    expect(find.byType(PetAvatar), findsOneWidget);
+    expect(find.byType(PetModel), findsOneWidget);
     expect(tester.takeException(), isNull,
         reason: 'экран нового уровня переполнился');
 
@@ -128,9 +128,9 @@ void main() {
     await tester.pumpWidget(FinnyApp(gameState: game));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byType(PetAvatar));
+    await tester.ensureVisible(find.byType(PetModel));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(PetAvatar));
+    await tester.tap(find.byType(PetModel));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Дать').first);

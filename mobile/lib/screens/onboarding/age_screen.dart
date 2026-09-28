@@ -6,7 +6,7 @@ import '../../widgets/finny_avatar.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
 
-/// Шаг 3. Возраст игрока: 7–11 лет, выбор кнопками — без клавиатуры.
+/// Шаг 3. Возраст игрока: 7, 8, 9 или 10+ лет, выбор кнопками — без клавиатуры.
 /// Возраст показываем на главном экране, поменять можно в настройках.
 class AgeScreen extends StatefulWidget {
   final int? selected;
@@ -125,7 +125,7 @@ class _AgeChoice extends StatelessWidget {
                   : null,
             ),
             Text(
-              '$age лет',
+              PlayerProfile.labelFor(age),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,

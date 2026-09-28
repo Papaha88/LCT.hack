@@ -1,0 +1,3462 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Финни — API справочников и прогресса",
+    "description": "\nБэкенд игры «Питомец Финни».\n\n**Сервер не обязателен по ТЗ** — игровой цикл работает офлайн на локальном\nпрофиле. API нужен для двух вещей:\n\n1. **Справочники** (`/api/v1/content/*`) — каталог покупок, цели, задания,\n   термины и правила экономики. Контент лежит в JSON отдельно от кода, поэтому\n   новое задание или товар добавляются без пересборки приложения.\n   Разделы кэшируются по ETag: клиент присылает `If-None-Match` и получает 304.\n2. **Прогресс** (`/api/v1/progress/*`) — выгрузка и восстановление снимка\n   локального профиля (переустановка, смена устройства, проверка экспертом).\n\nПерсональные данные не собираются: профиль адресуется UUID, который\nгенерирует само приложение.\n",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/content/manifest": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Версии всех справочников",
+        "description": "Лёгкий запрос «не пора ли обновить контент». Клиент хранит `content_version` и ETag каждого раздела и скачивает только изменившиеся.",
+        "operationId": "get_manifest_api_v1_content_manifest_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentManifest"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          }
+        }
+      }
+    },
+    "/api/v1/content/bundle": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Весь контент одним ответом",
+        "description": "Для первого запуска и офлайн-кэша: каталог, цели, задания, термины, питомцы, экономика.",
+        "operationId": "get_bundle_api_v1_content_bundle_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentBundle"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          }
+        }
+      }
+    },
+    "/api/v1/content/catalog": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Каталог покупок",
+        "description": "Товары с ценой, категорией и влиянием на питомца (ТЗ 2.5.6).",
+        "operationId": "get_catalog_api_v1_content_catalog_get",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "mandatory",
+                    "optional",
+                    "education"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "mandatory | optional | education",
+              "title": "Kind"
+            },
+            "description": "mandatory | optional | education"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "food, hygiene, toys…",
+              "title": "Category"
+            },
+            "description": "food, hygiene, toys…"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogFile"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content/catalog/{item_id}": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Одна позиция каталога",
+        "operationId": "get_catalog_item_api_v1_content_catalog__item_id__get",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Идентификатор товара, например food_apple",
+              "title": "Item Id"
+            },
+            "description": "Идентификатор товара, например food_apple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content/goals": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Цели накопления",
+        "description": "Цель с ценой, ориентиром срока и наградой (ТЗ 2.5.7).",
+        "operationId": "get_goals_api_v1_content_goals_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalsFile"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          }
+        }
+      }
+    },
+    "/api/v1/content/goals/{goal_id}": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Одна цель",
+        "operationId": "get_goal_api_v1_content_goals__goal_id__get",
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Goal"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content/quests": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Задания по финансовой грамотности",
+        "description": "Минимум 6 заданий по 3 темам (ТЗ 2.5.8). Типы: `choice` — выбор с последствиями, `allocation` — распределение бюджета, `ordering` — порядок шагов. У каждого варианта есть объяснение — оно показывается независимо от правильности ответа.",
+        "operationId": "get_quests_api_v1_content_quests_get",
+        "parameters": [
+          {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "budget_planning, savings, payments",
+              "title": "Topic"
+            },
+            "description": "budget_planning, savings, payments"
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Например, recovery — задание-исправление",
+              "title": "Tag"
+            },
+            "description": "Например, recovery — задание-исправление"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestsFile"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content/quests/{quest_id}": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Одно задание",
+        "operationId": "get_quest_api_v1_content_quests__quest_id__get",
+        "parameters": [
+          {
+            "name": "quest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Quest Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ChoiceQuest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AllocationQuest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrderingQuest"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "type",
+                    "mapping": {
+                      "choice": "#/components/schemas/ChoiceQuest",
+                      "allocation": "#/components/schemas/AllocationQuest",
+                      "ordering": "#/components/schemas/OrderingQuest"
+                    }
+                  },
+                  "title": "Response Get Quest Api V1 Content Quests  Quest Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content/glossary": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Справочник терминов",
+        "description": "Короткие объяснения финансовых слов для справочного раздела (ТЗ 2.5.11).",
+        "operationId": "get_glossary_api_v1_content_glossary_get",
+        "parameters": [
+          {
+            "name": "topic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Topic"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlossaryFile"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/content/pets": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Внешний вид питомца",
+        "description": "Виды, окраски и готовые имена для онбординга: 3 × 3 = 9 комбинаций (ТЗ 2.6).",
+        "operationId": "get_pets_api_v1_content_pets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PetsFile"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          }
+        }
+      }
+    },
+    "/api/v1/content/economy": {
+      "get": {
+        "tags": [
+          "Справочники"
+        ],
+        "summary": "Правила игровой экономики",
+        "description": "Доход за период, шаг планирования, ставка вклада, пороги стадий питомца и обязательные правила. Вынесены в контент, чтобы баланс игры менялся без правок кода приложения (ТЗ 2.5.14).",
+        "operationId": "get_economy_api_v1_content_economy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EconomyFile"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Контент не изменился — используйте локальную копию"
+          }
+        }
+      }
+    },
+    "/api/v1/progress/{profile_id}": {
+      "put": {
+        "tags": [
+          "Прогресс"
+        ],
+        "summary": "Выгрузить прогресс на сервер",
+        "description": "Клиент присылает снимок целиком и увеличивает `revision` при каждой выгрузке. Если на сервере лежит бóльшая ревизия — 409 вместе с серверным снимком, чтобы приложение могло сравнить их и не потерять прогресс. Перезаписать принудительно — `?force=true`.",
+        "operationId": "upload_progress_api_v1_progress__profile_id__put",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID локального профиля, который генерирует приложение",
+              "title": "Profile Id"
+            },
+            "description": "UUID локального профиля, который генерирует приложение"
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Перезаписать серверную версию",
+              "default": false,
+              "title": "Force"
+            },
+            "description": "Перезаписать серверную версию"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressSnapshot-Input"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressAck"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Профиль сохранён впервые",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressAck"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "На сервере более новая ревизия",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressConflict"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Снимок нарушает правила ТЗ (например, отрицательный баланс)"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Прогресс"
+        ],
+        "summary": "Забрать прогресс с сервера",
+        "description": "Нужен при переустановке приложения или смене устройства.",
+        "operationId": "download_progress_api_v1_progress__profile_id__get",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID локального профиля, который генерирует приложение",
+              "title": "Profile Id"
+            },
+            "description": "UUID локального профиля, который генерирует приложение"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredProgress"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Прогресс для этого профиля не выгружался"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Прогресс"
+        ],
+        "summary": "Удалить серверную копию прогресса",
+        "description": "Для раздела взрослого (ТЗ 3.5: сброс и удаление данных доступны без обращения к разработчику). Операция идемпотентна: если копии нет, ответ всё равно 204.",
+        "operationId": "delete_progress_api_v1_progress__profile_id__delete",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "UUID локального профиля, который генерирует приложение",
+              "title": "Profile Id"
+            },
+            "description": "UUID локального профиля, который генерирует приложение"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Служебное"
+        ],
+        "summary": "Проверка доступности",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Служебное"
+        ],
+        "summary": "Проверка доступности и версии контента",
+        "operationId": "health_v1_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health V1 Api V1 Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pet/{user_id}": {
+      "get": {
+        "tags": [
+          "Служебное"
+        ],
+        "summary": "Устаревшая заглушка",
+        "operationId": "get_pet_state_pet__user_id__get",
+        "deprecated": true,
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__main__PetState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AllocationDirection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "message_if_below": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message If Below"
+          },
+          "message_if_above": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message If Above"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji"
+        ],
+        "title": "AllocationDirection"
+      },
+      "AllocationQuest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "situation": {
+            "type": "string",
+            "title": "Situation"
+          },
+          "finni_intro": {
+            "type": "string",
+            "title": "Finni Intro"
+          },
+          "reward": {
+            "$ref": "#/components/schemas/QuestReward"
+          },
+          "difficulty": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Difficulty"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "wrap_up": {
+            "type": "string",
+            "title": "Wrap Up",
+            "description": "Короткий вывод после задания, независимо от ответа"
+          },
+          "type": {
+            "type": "string",
+            "const": "allocation",
+            "title": "Type"
+          },
+          "allocation": {
+            "$ref": "#/components/schemas/AllocationTask"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "topic",
+          "title",
+          "situation",
+          "finni_intro",
+          "reward",
+          "difficulty",
+          "wrap_up",
+          "type",
+          "allocation"
+        ],
+        "title": "AllocationQuest"
+      },
+      "AllocationTask": {
+        "properties": {
+          "available": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Available"
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Step"
+          },
+          "must_use_all": {
+            "type": "boolean",
+            "title": "Must Use All",
+            "default": false
+          },
+          "directions": {
+            "items": {
+              "$ref": "#/components/schemas/AllocationDirection"
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Directions"
+          },
+          "success_explanation": {
+            "type": "string",
+            "title": "Success Explanation"
+          },
+          "partial_explanation": {
+            "type": "string",
+            "title": "Partial Explanation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "available",
+          "step",
+          "directions",
+          "success_explanation",
+          "partial_explanation"
+        ],
+        "title": "AllocationTask"
+      },
+      "BudgetDirection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "explain": {
+            "type": "string",
+            "title": "Explain"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji",
+          "categories",
+          "explain"
+        ],
+        "title": "BudgetDirection"
+      },
+      "BudgetPlanState": {
+        "properties": {
+          "period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Period"
+          },
+          "available": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Available"
+          },
+          "mandatory": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Mandatory"
+          },
+          "optional": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Optional",
+            "default": 0
+          },
+          "education": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Education",
+            "default": 0
+          },
+          "savings": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Savings",
+            "default": 0
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "period",
+          "available",
+          "mandatory"
+        ],
+        "title": "BudgetPlanState",
+        "description": "План периода. После подтверждения не редактируется (ТЗ 2.5.5),\nпоэтому `confirmed` едет в снимке вместе с суммами."
+      },
+      "BudgetRules": {
+        "properties": {
+          "step": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Step"
+          },
+          "alt_step": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Alt Step"
+          },
+          "allow_unallocated": {
+            "type": "boolean",
+            "title": "Allow Unallocated"
+          },
+          "unallocated_hint": {
+            "type": "string",
+            "title": "Unallocated Hint"
+          },
+          "editable_until_confirmed": {
+            "type": "boolean",
+            "title": "Editable Until Confirmed"
+          },
+          "directions": {
+            "items": {
+              "$ref": "#/components/schemas/BudgetDirection"
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Directions",
+            "description": "ТЗ 2.5.5: минимум 3 направления"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "step",
+          "alt_step",
+          "allow_unallocated",
+          "unallocated_hint",
+          "editable_until_confirmed",
+          "directions"
+        ],
+        "title": "BudgetRules"
+      },
+      "CatalogCategory": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mandatory",
+              "optional",
+              "education"
+            ],
+            "title": "Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji",
+          "kind"
+        ],
+        "title": "CatalogCategory"
+      },
+      "CatalogFile": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date",
+            "title": "Updated At"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogCategory"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Categories"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "updated_at",
+          "categories",
+          "items"
+        ],
+        "title": "CatalogFile"
+      },
+      "CatalogItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 20,
+            "title": "Title",
+            "description": "До 20 символов — требование к карточке товара"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "mandatory",
+              "optional",
+              "education"
+            ],
+            "title": "Kind"
+          },
+          "price": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Price"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "consumable": {
+            "type": "boolean",
+            "title": "Consumable"
+          },
+          "effects": {
+            "$ref": "#/components/schemas/StatEffects"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "finni_hint": {
+            "type": "string",
+            "title": "Finni Hint",
+            "description": "Реплика Финни после покупки"
+          },
+          "purchase_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Limit"
+          },
+          "slot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slot",
+            "description": "Слот на главном экране (миска, лежанка…)"
+          },
+          "unlock": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogUnlock"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resale_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resale Rate"
+          },
+          "education": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EducationMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "category",
+          "kind",
+          "price",
+          "emoji",
+          "consumable",
+          "description",
+          "finni_hint"
+        ],
+        "title": "CatalogItem"
+      },
+      "CatalogUnlock": {
+        "properties": {
+          "pet_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pet Stage"
+          },
+          "education_level": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Education Level"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CatalogUnlock",
+        "description": "Условие, при котором позиция появляется в магазине."
+      },
+      "ChoiceOption": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "is_correct": {
+            "type": "boolean",
+            "title": "Is Correct"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "description": "Показывается при любом ответе (ТЗ 2.5.8)"
+          },
+          "effects": {
+            "$ref": "#/components/schemas/QuestEffects"
+          },
+          "recovery_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Hint",
+            "description": "Путь восстановления после неудачного выбора (ТЗ 2.5.9)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "is_correct",
+          "explanation"
+        ],
+        "title": "ChoiceOption"
+      },
+      "ChoiceQuest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "situation": {
+            "type": "string",
+            "title": "Situation"
+          },
+          "finni_intro": {
+            "type": "string",
+            "title": "Finni Intro"
+          },
+          "reward": {
+            "$ref": "#/components/schemas/QuestReward"
+          },
+          "difficulty": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Difficulty"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "wrap_up": {
+            "type": "string",
+            "title": "Wrap Up",
+            "description": "Короткий вывод после задания, независимо от ответа"
+          },
+          "type": {
+            "type": "string",
+            "const": "choice",
+            "title": "Type"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceOption"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "topic",
+          "title",
+          "situation",
+          "finni_intro",
+          "reward",
+          "difficulty",
+          "wrap_up",
+          "type",
+          "options"
+        ],
+        "title": "ChoiceQuest"
+      },
+      "ContentBundle": {
+        "properties": {
+          "content_version": {
+            "type": "string",
+            "title": "Content Version"
+          },
+          "catalog": {
+            "$ref": "#/components/schemas/CatalogFile"
+          },
+          "goals": {
+            "$ref": "#/components/schemas/GoalsFile"
+          },
+          "quests": {
+            "$ref": "#/components/schemas/QuestsFile"
+          },
+          "glossary": {
+            "$ref": "#/components/schemas/GlossaryFile"
+          },
+          "pets": {
+            "$ref": "#/components/schemas/PetsFile"
+          },
+          "economy": {
+            "$ref": "#/components/schemas/EconomyFile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content_version",
+          "catalog",
+          "goals",
+          "quests",
+          "glossary",
+          "pets",
+          "economy"
+        ],
+        "title": "ContentBundle",
+        "description": "Весь контент одним ответом — для первого запуска и офлайн-кэша."
+      },
+      "ContentManifest": {
+        "properties": {
+          "content_version": {
+            "type": "string",
+            "title": "Content Version"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ContentSectionInfo"
+            },
+            "type": "array",
+            "title": "Sections"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content_version",
+          "sections"
+        ],
+        "title": "ContentManifest",
+        "description": "Лёгкий ответ для проверки «не пора ли обновить локальный контент».\n\nМобильный хранит `content_version` рядом с закэшированным контентом и\nскачивает разделы, у которых изменился `etag`."
+      },
+      "ContentSectionInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "etag": {
+            "type": "string",
+            "title": "Etag"
+          },
+          "items": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items",
+            "description": "Количество записей, если раздел — список"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "etag",
+          "url"
+        ],
+        "title": "ContentSectionInfo"
+      },
+      "ContentWarning": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "ref": {
+            "type": "string",
+            "title": "Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "ref"
+        ],
+        "title": "ContentWarning",
+        "description": "Мягкое предупреждение о ссылке на неизвестный серверу контент.\n\nНе ошибка: у приложения может быть более новый контент (или собственный\nофлайн-набор), и терять из-за этого прогресс нельзя."
+      },
+      "Currency": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "title",
+          "emoji"
+        ],
+        "title": "Currency"
+      },
+      "DepositRules": {
+        "properties": {
+          "annual_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Annual Rate"
+          },
+          "accrual": {
+            "type": "string",
+            "title": "Accrual"
+          },
+          "min_amount": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Min Amount"
+          },
+          "quick_amounts": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Quick Amounts"
+          },
+          "withdraw_requires_confirmation": {
+            "type": "boolean",
+            "title": "Withdraw Requires Confirmation"
+          },
+          "explain": {
+            "type": "string",
+            "title": "Explain"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "annual_rate",
+          "accrual",
+          "min_amount",
+          "quick_amounts",
+          "withdraw_requires_confirmation",
+          "explain"
+        ],
+        "title": "DepositRules"
+      },
+      "EconomyFile": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date",
+            "title": "Updated At"
+          },
+          "currency": {
+            "$ref": "#/components/schemas/Currency"
+          },
+          "income": {
+            "$ref": "#/components/schemas/IncomeRules"
+          },
+          "period": {
+            "$ref": "#/components/schemas/PeriodRules"
+          },
+          "budget": {
+            "$ref": "#/components/schemas/BudgetRules"
+          },
+          "deposit": {
+            "$ref": "#/components/schemas/DepositRules"
+          },
+          "pet": {
+            "$ref": "#/components/schemas/PetRules"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/GameRules"
+          },
+          "messages": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Messages"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "updated_at",
+          "currency",
+          "income",
+          "period",
+          "budget",
+          "deposit",
+          "pet",
+          "rules",
+          "messages"
+        ],
+        "title": "EconomyFile"
+      },
+      "EducationMeta": {
+        "properties": {
+          "level": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Level"
+          },
+          "requires_level": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Requires Level"
+          },
+          "income_multiplier": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Income Multiplier"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "level",
+          "requires_level",
+          "income_multiplier"
+        ],
+        "title": "EducationMeta",
+        "description": "Курс обучения: вложение в себя, увеличивающее будущий доход."
+      },
+      "EducationState": {
+        "properties": {
+          "level": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Level"
+          },
+          "base_income": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Base Income"
+          },
+          "purchased_course_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Purchased Course Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "level",
+          "base_income"
+        ],
+        "title": "EducationState"
+      },
+      "GameRules": {
+        "properties": {
+          "negative_balance_forbidden": {
+            "type": "boolean",
+            "const": true,
+            "title": "Negative Balance Forbidden"
+          },
+          "purchase_requires_confirmation": {
+            "type": "boolean",
+            "const": true,
+            "title": "Purchase Requires Confirmation"
+          },
+          "savings_withdraw_requires_confirmation": {
+            "type": "boolean",
+            "const": true,
+            "title": "Savings Withdraw Requires Confirmation"
+          },
+          "plan_editable_until_confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Plan Editable Until Confirmed"
+          },
+          "quests_reward_coins": {
+            "type": "boolean",
+            "const": true,
+            "title": "Quests Reward Coins"
+          },
+          "failure_creates_recovery_task": {
+            "type": "boolean",
+            "const": true,
+            "title": "Failure Creates Recovery Task"
+          },
+          "resale_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Resale Rate"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "negative_balance_forbidden",
+          "purchase_requires_confirmation",
+          "savings_withdraw_requires_confirmation",
+          "plan_editable_until_confirmed",
+          "quests_reward_coins",
+          "failure_creates_recovery_task",
+          "resale_rate"
+        ],
+        "title": "GameRules",
+        "description": "Правила, которые по ТЗ нельзя нарушать, — поэтому только `true`."
+      },
+      "GlossaryFile": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date",
+            "title": "Updated At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GlossaryTerm"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "updated_at",
+          "items"
+        ],
+        "title": "GlossaryFile"
+      },
+      "GlossaryTerm": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "definition": {
+            "type": "string",
+            "title": "Definition"
+          },
+          "example": {
+            "type": "string",
+            "title": "Example"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "term",
+          "definition",
+          "example",
+          "topic"
+        ],
+        "title": "GlossaryTerm"
+      },
+      "Goal": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "price": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Price"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "suggested_periods": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Suggested Periods",
+            "description": "Ориентир срока при регулярном пополнении"
+          },
+          "suggested_per_period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Suggested Per Period"
+          },
+          "reward": {
+            "$ref": "#/components/schemas/GoalReward"
+          },
+          "finni_line": {
+            "type": "string",
+            "title": "Finni Line"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "price",
+          "emoji",
+          "description",
+          "suggested_periods",
+          "suggested_per_period",
+          "reward",
+          "finni_line"
+        ],
+        "title": "Goal"
+      },
+      "GoalProgressState": {
+        "properties": {
+          "goal_id": {
+            "type": "string",
+            "title": "Goal Id"
+          },
+          "accumulated": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Accumulated"
+          },
+          "selected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "goal_id",
+          "accumulated"
+        ],
+        "title": "GoalProgressState"
+      },
+      "GoalReward": {
+        "properties": {
+          "xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp",
+            "default": 0
+          },
+          "coins": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Coins",
+            "default": 0
+          },
+          "unlocks_item_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unlocks Item Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "GoalReward"
+      },
+      "GoalsFile": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date",
+            "title": "Updated At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Goal"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "updated_at",
+          "items"
+        ],
+        "title": "GoalsFile"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IncomeRules": {
+        "properties": {
+          "base_income_per_period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Base Income Per Period"
+          },
+          "daily_login_bonus": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Daily Login Bonus"
+          },
+          "course_income_multiplier": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Course Income Multiplier"
+          },
+          "max_education_level": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Max Education Level"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/IncomeSource"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "base_income_per_period",
+          "daily_login_bonus",
+          "course_income_multiplier",
+          "max_education_level",
+          "sources"
+        ],
+        "title": "IncomeRules"
+      },
+      "IncomeSource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "explain": {
+            "type": "string",
+            "title": "Explain",
+            "description": "ТЗ 2.5.4: у каждого начисления понятен источник"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "explain"
+        ],
+        "title": "IncomeSource"
+      },
+      "InventoryEntry": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "title": "Item Id"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Quantity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "title": "InventoryEntry"
+      },
+      "NicknameRules": {
+        "properties": {
+          "min_length": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Min Length"
+          },
+          "max_length": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Max Length"
+          },
+          "trim_spaces": {
+            "type": "boolean",
+            "title": "Trim Spaces"
+          },
+          "hint": {
+            "type": "string",
+            "title": "Hint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "min_length",
+          "max_length",
+          "trim_spaces",
+          "hint"
+        ],
+        "title": "NicknameRules"
+      },
+      "OrderingItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji"
+        ],
+        "title": "OrderingItem"
+      },
+      "OrderingQuest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "situation": {
+            "type": "string",
+            "title": "Situation"
+          },
+          "finni_intro": {
+            "type": "string",
+            "title": "Finni Intro"
+          },
+          "reward": {
+            "$ref": "#/components/schemas/QuestReward"
+          },
+          "difficulty": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Difficulty"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "wrap_up": {
+            "type": "string",
+            "title": "Wrap Up",
+            "description": "Короткий вывод после задания, независимо от ответа"
+          },
+          "type": {
+            "type": "string",
+            "const": "ordering",
+            "title": "Type"
+          },
+          "ordering": {
+            "$ref": "#/components/schemas/OrderingTask"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "topic",
+          "title",
+          "situation",
+          "finni_intro",
+          "reward",
+          "difficulty",
+          "wrap_up",
+          "type",
+          "ordering"
+        ],
+        "title": "OrderingQuest"
+      },
+      "OrderingTask": {
+        "properties": {
+          "shuffle": {
+            "type": "boolean",
+            "title": "Shuffle",
+            "default": true
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderingItem"
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Items"
+          },
+          "correct_order": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Correct Order"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "partial_explanation": {
+            "type": "string",
+            "title": "Partial Explanation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "correct_order",
+          "explanation",
+          "partial_explanation"
+        ],
+        "title": "OrderingTask"
+      },
+      "PeriodRules": {
+        "properties": {
+          "periods_per_year": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Periods Per Year"
+          },
+          "demo_mode_periods": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Demo Mode Periods",
+            "description": "ТЗ 2.6: не менее 5 периодов подряд"
+          },
+          "demo_mode_skips_real_time": {
+            "type": "boolean",
+            "title": "Demo Mode Skips Real Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "periods_per_year",
+          "demo_mode_periods",
+          "demo_mode_skips_real_time"
+        ],
+        "title": "PeriodRules"
+      },
+      "PeriodSummary": {
+        "properties": {
+          "period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Period"
+          },
+          "income": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Income"
+          },
+          "planned": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Planned"
+          },
+          "actual": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Actual"
+          },
+          "saved": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Saved",
+            "default": 0
+          },
+          "plan_followed": {
+            "type": "boolean",
+            "title": "Plan Followed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "period",
+          "income"
+        ],
+        "title": "PeriodSummary",
+        "description": "Итог периода: план против факта (ТЗ 2.5.5)."
+      },
+      "PetMood": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "min_average_stat": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Min Average Stat"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji",
+          "min_average_stat"
+        ],
+        "title": "PetMood"
+      },
+      "PetPalette": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "belly": {
+            "type": "string",
+            "title": "Belly"
+          },
+          "accent": {
+            "type": "string",
+            "title": "Accent"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "belly",
+          "accent"
+        ],
+        "title": "PetPalette"
+      },
+      "PetRules": {
+        "properties": {
+          "stats": {
+            "items": {
+              "$ref": "#/components/schemas/PetStat"
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Stats"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PetStage"
+            },
+            "type": "array",
+            "title": "Stages",
+            "description": "ТЗ 2.6: не менее 3 стадий развития"
+          },
+          "moods": {
+            "items": {
+              "$ref": "#/components/schemas/PetMood"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Moods"
+          },
+          "xp_rules": {
+            "items": {
+              "$ref": "#/components/schemas/XpRule"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Xp Rules"
+          },
+          "purchase_blocks": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseBlock"
+            },
+            "type": "array",
+            "title": "Purchase Blocks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stats",
+          "stages",
+          "moods",
+          "xp_rules"
+        ],
+        "title": "PetRules"
+      },
+      "PetSpecies": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji"
+        ],
+        "title": "PetSpecies"
+      },
+      "PetStage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Order"
+          },
+          "min_xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Min Xp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "order",
+          "min_xp"
+        ],
+        "title": "PetStage"
+      },
+      "PetStat": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "max": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Max"
+          },
+          "decay_per_period": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Decay Per Period"
+          },
+          "low_threshold": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Low Threshold"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji",
+          "max",
+          "decay_per_period",
+          "low_threshold"
+        ],
+        "title": "PetStat"
+      },
+      "PetState-Input": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 15,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "species_id": {
+            "type": "string",
+            "title": "Species Id"
+          },
+          "palette_id": {
+            "type": "string",
+            "title": "Palette Id"
+          },
+          "stage_id": {
+            "type": "string",
+            "title": "Stage Id"
+          },
+          "xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/PetStatsState"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "species_id",
+          "palette_id",
+          "stage_id",
+          "xp",
+          "stats"
+        ],
+        "title": "PetState"
+      },
+      "PetStatsState": {
+        "properties": {
+          "satiety": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Satiety"
+          },
+          "happiness": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Happiness"
+          },
+          "cleanliness": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Cleanliness"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "satiety",
+          "happiness",
+          "cleanliness"
+        ],
+        "title": "PetStatsState"
+      },
+      "PetsFile": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date",
+            "title": "Updated At"
+          },
+          "species": {
+            "items": {
+              "$ref": "#/components/schemas/PetSpecies"
+            },
+            "type": "array",
+            "title": "Species"
+          },
+          "palettes": {
+            "items": {
+              "$ref": "#/components/schemas/PetPalette"
+            },
+            "type": "array",
+            "title": "Palettes"
+          },
+          "name_suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Name Suggestions"
+          },
+          "nickname_rules": {
+            "$ref": "#/components/schemas/NicknameRules"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "updated_at",
+          "species",
+          "palettes",
+          "name_suggestions",
+          "nickname_rules"
+        ],
+        "title": "PetsFile"
+      },
+      "PlayerState": {
+        "properties": {
+          "nickname": {
+            "type": "string",
+            "maxLength": 15,
+            "minLength": 1,
+            "title": "Nickname"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "nickname"
+        ],
+        "title": "PlayerState"
+      },
+      "ProfileSettings": {
+        "properties": {
+          "sound_enabled": {
+            "type": "boolean",
+            "title": "Sound Enabled",
+            "default": true
+          },
+          "animations_enabled": {
+            "type": "boolean",
+            "title": "Animations Enabled",
+            "default": true
+          },
+          "demo_mode": {
+            "type": "boolean",
+            "title": "Demo Mode",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ProfileSettings",
+        "description": "Настройки доступности (ТЗ 3.6: звук и анимации можно отключить)."
+      },
+      "ProgressAck": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "server_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Updated At"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created",
+            "description": "true — профиль сохранён впервые"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ContentWarning"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "revision",
+          "server_updated_at",
+          "created"
+        ],
+        "title": "ProgressAck"
+      },
+      "ProgressConflict": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "server_revision": {
+            "type": "integer",
+            "title": "Server Revision"
+          },
+          "server_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Updated At"
+          },
+          "server_snapshot": {
+            "$ref": "#/components/schemas/ProgressSnapshot-Input"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail",
+          "server_revision",
+          "server_updated_at",
+          "server_snapshot"
+        ],
+        "title": "ProgressConflict",
+        "description": "Ответ 409: на сервере снимок новее. Клиент решает — слить или перезаписать\n(`?force=true`), прогресс при этом не теряется ни с одной стороны."
+      },
+      "ProgressSnapshot-Input": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version",
+            "default": "1.0"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision",
+            "description": "Счётчик версий на клиенте: растёт при каждой выгрузке"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "Время последнего изменения на устройстве"
+          },
+          "current_period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Current Period"
+          },
+          "player": {
+            "$ref": "#/components/schemas/PlayerState"
+          },
+          "pet": {
+            "$ref": "#/components/schemas/PetState-Input"
+          },
+          "wallet": {
+            "$ref": "#/components/schemas/WalletState"
+          },
+          "education": {
+            "$ref": "#/components/schemas/EducationState"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/ProfileSettings"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoalProgressState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetPlanState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inventory": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryEntry"
+            },
+            "type": "array",
+            "title": "Inventory"
+          },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseRecord"
+            },
+            "type": "array",
+            "title": "Purchases"
+          },
+          "quests": {
+            "items": {
+              "$ref": "#/components/schemas/QuestRecord"
+            },
+            "type": "array",
+            "title": "Quests"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodSummary"
+            },
+            "type": "array",
+            "title": "Periods"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "updated_at",
+          "current_period",
+          "player",
+          "pet",
+          "wallet",
+          "education"
+        ],
+        "title": "ProgressSnapshot",
+        "description": "Полный снимок локального профиля."
+      },
+      "ProgressSnapshot-Output": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version",
+            "default": "1.0"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Revision",
+            "description": "Счётчик версий на клиенте: растёт при каждой выгрузке"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "Время последнего изменения на устройстве"
+          },
+          "current_period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Current Period"
+          },
+          "player": {
+            "$ref": "#/components/schemas/PlayerState"
+          },
+          "pet": {
+            "$ref": "#/components/schemas/app__schemas__progress__PetState"
+          },
+          "wallet": {
+            "$ref": "#/components/schemas/WalletState"
+          },
+          "education": {
+            "$ref": "#/components/schemas/EducationState"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/ProfileSettings"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GoalProgressState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetPlanState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inventory": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryEntry"
+            },
+            "type": "array",
+            "title": "Inventory"
+          },
+          "purchases": {
+            "items": {
+              "$ref": "#/components/schemas/PurchaseRecord"
+            },
+            "type": "array",
+            "title": "Purchases"
+          },
+          "quests": {
+            "items": {
+              "$ref": "#/components/schemas/QuestRecord"
+            },
+            "type": "array",
+            "title": "Quests"
+          },
+          "periods": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodSummary"
+            },
+            "type": "array",
+            "title": "Periods"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "updated_at",
+          "current_period",
+          "player",
+          "pet",
+          "wallet",
+          "education"
+        ],
+        "title": "ProgressSnapshot",
+        "description": "Полный снимок локального профиля."
+      },
+      "PurchaseBlock": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "when_stat": {
+            "type": "string",
+            "title": "When Stat"
+          },
+          "lte": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Lte"
+          },
+          "blocked_categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Blocked Categories"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "when_stat",
+          "lte",
+          "blocked_categories",
+          "message"
+        ],
+        "title": "PurchaseBlock"
+      },
+      "PurchaseRecord": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "title": "Item Id"
+          },
+          "price": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Price"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Quantity",
+            "default": 1
+          },
+          "period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Period"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "item_id",
+          "price",
+          "period",
+          "at"
+        ],
+        "title": "PurchaseRecord"
+      },
+      "QuestEffects": {
+        "properties": {
+          "coins": {
+            "type": "integer",
+            "title": "Coins",
+            "default": 0
+          },
+          "satiety": {
+            "type": "integer",
+            "title": "Satiety",
+            "default": 0
+          },
+          "happiness": {
+            "type": "integer",
+            "title": "Happiness",
+            "default": 0
+          },
+          "cleanliness": {
+            "type": "integer",
+            "title": "Cleanliness",
+            "default": 0
+          },
+          "savings": {
+            "type": "integer",
+            "title": "Savings",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "QuestEffects"
+      },
+      "QuestRecord": {
+        "properties": {
+          "quest_id": {
+            "type": "string",
+            "title": "Quest Id"
+          },
+          "option_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Option Id"
+          },
+          "result": {
+            "type": "string",
+            "pattern": "^(correct|partly|incorrect)$",
+            "title": "Result"
+          },
+          "earned_coins": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Earned Coins",
+            "default": 0
+          },
+          "earned_xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Earned Xp",
+            "default": 0
+          },
+          "period": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Period"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "quest_id",
+          "result",
+          "period",
+          "at"
+        ],
+        "title": "QuestRecord"
+      },
+      "QuestReward": {
+        "properties": {
+          "coins": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Coins",
+            "description": "ТЗ 2.5.8: задания начисляют игровую валюту"
+          },
+          "xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "coins",
+          "xp"
+        ],
+        "title": "QuestReward"
+      },
+      "QuestTopic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "skill": {
+            "type": "string",
+            "title": "Skill",
+            "description": "Образовательный результат темы"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji",
+          "skill"
+        ],
+        "title": "QuestTopic"
+      },
+      "QuestsFile": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date",
+            "title": "Updated At"
+          },
+          "topics": {
+            "items": {
+              "$ref": "#/components/schemas/QuestTopic"
+            },
+            "type": "array",
+            "title": "Topics"
+          },
+          "items": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ChoiceQuest"
+                },
+                {
+                  "$ref": "#/components/schemas/AllocationQuest"
+                },
+                {
+                  "$ref": "#/components/schemas/OrderingQuest"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "allocation": "#/components/schemas/AllocationQuest",
+                  "choice": "#/components/schemas/ChoiceQuest",
+                  "ordering": "#/components/schemas/OrderingQuest"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "version",
+          "updated_at",
+          "topics",
+          "items"
+        ],
+        "title": "QuestsFile"
+      },
+      "StatEffects": {
+        "properties": {
+          "satiety": {
+            "type": "integer",
+            "title": "Satiety",
+            "default": 0
+          },
+          "happiness": {
+            "type": "integer",
+            "title": "Happiness",
+            "default": 0
+          },
+          "cleanliness": {
+            "type": "integer",
+            "title": "Cleanliness",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StatEffects",
+        "description": "Влияние покупки на показатели питомца (ТЗ 2.5.6)."
+      },
+      "StoredProgress": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "server_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Server Updated At"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ProgressSnapshot-Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "revision",
+          "server_updated_at",
+          "snapshot"
+        ],
+        "title": "StoredProgress"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WalletState": {
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Balance"
+          },
+          "savings": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Savings",
+            "description": "Накопления по текущей цели"
+          },
+          "deposit": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Deposit",
+            "description": "Сумма на вкладе",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "balance",
+          "savings"
+        ],
+        "title": "WalletState",
+        "description": "Отрицательный баланс запрещён ТЗ 2.5.6 — ограничение `ge=0` здесь и есть\nэто правило: снимок с минусом сервер не примет (422)."
+      },
+      "XpRule": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp"
+          },
+          "explain": {
+            "type": "string",
+            "title": "Explain"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "xp",
+          "explain"
+        ],
+        "title": "XpRule"
+      },
+      "app__main__PetState": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "stage": {
+            "type": "integer",
+            "title": "Stage"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "goal": {
+            "type": "number",
+            "title": "Goal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "stage",
+          "balance",
+          "goal"
+        ],
+        "title": "PetState"
+      },
+      "app__schemas__progress__PetState": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 15,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "species_id": {
+            "type": "string",
+            "title": "Species Id"
+          },
+          "palette_id": {
+            "type": "string",
+            "title": "Palette Id"
+          },
+          "stage_id": {
+            "type": "string",
+            "title": "Stage Id"
+          },
+          "xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/PetStatsState"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "species_id",
+          "palette_id",
+          "stage_id",
+          "xp",
+          "stats"
+        ],
+        "title": "PetState"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Справочники",
+      "description": "Контент только на чтение, одинаковый для всех."
+    },
+    {
+      "name": "Прогресс",
+      "description": "Снимок локального профиля: выгрузка, загрузка, удаление."
+    },
+    {
+      "name": "Служебное",
+      "description": "Проверки доступности сервиса."
+    }
+  ]
+}

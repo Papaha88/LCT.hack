@@ -1,0 +1,32 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-09-21",
+  "species": [
+    { "id": "cat", "title": "Кошечка", "emoji": "🐱" },
+    { "id": "dog", "title": "Собачка", "emoji": "🐶" },
+    { "id": "penguin", "title": "Пингвинчик", "emoji": "🐧" }
+  ],
+  "palettes": [
+    { "id": "sunny", "title": "Солнечный", "body": "#f7b955", "belly": "#fff3d6", "accent": "#e8892b" },
+    { "id": "mint", "title": "Мятный", "body": "#7fd1b9", "belly": "#e5fbf4", "accent": "#2f9c82" },
+    { "id": "berry", "title": "Ягодный", "body": "#e07a9c", "belly": "#ffe6ef", "accent": "#b34a70" }
+  ],
+  "name_suggestions": [
+    "Кекс",
+    "Пушок",
+    "Барни",
+    "Мокко",
+    "Тучка",
+    "Персик",
+    "Зефир",
+    "Лучик",
+    "Бублик",
+    "Финик"
+  ],
+  "nickname_rules": {
+    "min_length": 2,
+    "max_length": 15,
+    "trim_spaces": true,
+    "hint": "Максимум 15 символов, чтобы имя влезало в реплики Финни."
+  }
+}

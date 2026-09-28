@@ -43,21 +43,29 @@ void main() {
   });
 
   group('возраст игрока', () {
-    test('в диапазоне 7–11 принимается', () {
+    test('варианты 7, 8, 9 и 10+ принимаются', () {
       for (final age in PlayerProfile.ageChoices) {
         expect(PlayerProfile.isValidAge(age), isTrue);
       }
-      expect(PlayerProfile.ageChoices, [7, 8, 9, 10, 11]);
+      expect(PlayerProfile.ageChoices, [7, 8, 9, 10]);
     });
 
     test('вне диапазона отбрасывается', () {
       expect(PlayerProfile.isValidAge(6), isFalse);
-      expect(PlayerProfile.isValidAge(12), isFalse);
+      expect(PlayerProfile.isValidAge(11), isFalse);
     });
 
-    test('«9 лет» пишется без ошибок', () {
+    test('«9 лет» и «10+ лет» пишутся без ошибок', () {
       expect(const PlayerProfile(nickname: 'Кирилл', age: 9).ageText, '9 лет');
+      expect(
+          const PlayerProfile(nickname: 'Кирилл', age: 10).ageText, '10+ лет');
       expect(const PlayerProfile(nickname: 'Кирилл').ageText, '');
+    });
+
+    test('старый сейв с 11 годами превращается в 10+', () {
+      final old = PlayerProfile.fromJson({'nickname': 'Кирилл', 'age': 11});
+      expect(old.age, 10);
+      expect(old.ageText, '10+ лет');
     });
 
     test('сейв без возраста и с битым возрастом не ломает загрузку', () {

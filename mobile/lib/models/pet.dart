@@ -31,6 +31,47 @@ extension PetTypeInfo on PetType {
   }
 }
 
+/// Настроение питомца: из него берутся мордочка, короткая фраза
+/// и анимация модели. Главное — самое срочное: голод важнее скуки.
+enum PetMood { joyful, calm, hungry, dirty, bored, sad }
+
+extension PetMoodInfo on PetMood {
+  String get emoji {
+    switch (this) {
+      case PetMood.joyful:
+        return '😄';
+      case PetMood.calm:
+        return '🙂';
+      case PetMood.hungry:
+        return '😋';
+      case PetMood.dirty:
+        return '😣';
+      case PetMood.bored:
+        return '🥱';
+      case PetMood.sad:
+        return '😢';
+    }
+  }
+
+  /// Короткая фраза питомца — одна строка, без длинных объяснений.
+  String get phrase {
+    switch (this) {
+      case PetMood.joyful:
+        return 'Мне так хорошо!';
+      case PetMood.calm:
+        return 'Всё хорошо';
+      case PetMood.hungry:
+        return 'Хочу кушать';
+      case PetMood.dirty:
+        return 'Пора умыться';
+      case PetMood.bored:
+        return 'Поиграем?';
+      case PetMood.sad:
+        return 'Мне грустно…';
+    }
+  }
+}
+
 /// Внешний вид комбинации «вид + окраска».
 class PetLook {
   final String label;
@@ -160,6 +201,18 @@ class Pet {
 
   /// Этап взросления для главного экрана.
   String get stage => stageForLevel(level);
+
+  /// Текущее настроение. Совсем низкий стат — грусть; низкий — просьба.
+  PetMood get mood {
+    final minStat = [hunger, happiness, cleanliness]
+        .reduce((a, b) => a < b ? a : b);
+    if (minStat <= 20) return PetMood.sad;
+    if (hunger <= 40) return PetMood.hungry;
+    if (cleanliness <= 40) return PetMood.dirty;
+    if (happiness <= 40) return PetMood.bored;
+    if (minStat >= 75) return PetMood.joyful;
+    return PetMood.calm;
+  }
 
   /// Мордочка настроения (состояние дублируется текстом и эмодзи,
   /// а не только цветом — требование ТЗ).

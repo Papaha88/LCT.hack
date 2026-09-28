@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-09-21",
+  "items": [
+    {
+      "id": "goal_pet_house",
+      "title": "Домик для питомца",
+      "price": 150,
+      "emoji": "🏠",
+      "description": "Уютный домик, где питомец прячется от дождя.",
+      "suggested_periods": 3,
+      "suggested_per_period": 50,
+      "reward": { "xp": 30, "coins": 0, "unlocks_item_id": null },
+      "finni_line": "Домик — отличная первая мечта: копить недолго, а радости много!"
+    },
+    {
+      "id": "goal_scooter",
+      "title": "Самокат",
+      "price": 200,
+      "emoji": "🛴",
+      "description": "Быстрый самокат для прогулок с питомцем.",
+      "suggested_periods": 4,
+      "suggested_per_period": 50,
+      "reward": { "xp": 40, "coins": 0, "unlocks_item_id": null },
+      "finni_line": "Если откладывать по 50 монеток, самокат будет твоим через 4 периода."
+    },
+    {
+      "id": "goal_bike",
+      "title": "Велосипед",
+      "price": 300,
+      "emoji": "🚲",
+      "description": "Большая мечта, на которую нужно копить несколько периодов.",
+      "suggested_periods": 6,
+      "suggested_per_period": 50,
+      "reward": { "xp": 60, "coins": 0, "unlocks_item_id": "decor_garland" },
+      "finni_line": "Большая цель! Главное — откладывать понемногу, но каждый период."
+    },
+    {
+      "id": "goal_aquapark",
+      "title": "Поход в аквапарк",
+      "price": 500,
+      "emoji": "🎢",
+      "description": "Самая дальняя мечта: понадобится терпение и вклад.",
+      "suggested_periods": 10,
+      "suggested_per_period": 50,
+      "reward": { "xp": 100, "coins": 0, "unlocks_item_id": null },
+      "finni_line": "Положи часть монеток на вклад — и цель приблизится быстрее."
+    }
+  ]
+}

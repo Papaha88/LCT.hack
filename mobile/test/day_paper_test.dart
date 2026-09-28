@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:finny_pet/app.dart';
@@ -49,9 +50,10 @@ void main() {
     await tester.pumpWidget(FinnyApp(gameState: game));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Следующий день 👉'));
+    await tester.scrollUntilVisible(find.text('Следующий день'), 300,
+        scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Следующий день 👉'));
+    await tester.tap(find.text('Следующий день'));
     await tester.pumpAndSettle();
 
     expect(find.text('Итоги дня'), findsOneWidget);
