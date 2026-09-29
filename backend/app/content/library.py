@@ -53,7 +53,7 @@ def enforce_minimums(
     """Минимальный объём демонстрационного контента, раздел 2.6 ТЗ.
 
     Проверяется при загрузке, а не в схемах: те же схемы описывают
-    отфильтрованные ответы (`/quests?topic=savings`), где подмножество — норма.
+    отфильтрованные ответы (`/quests?track=finance`), где подмножество — норма.
     """
     problems: list[str] = []
 
@@ -70,18 +70,25 @@ def enforce_minimums(
     require(len(goals.items) >= 3, f"цели: нужно 3+, есть {len(goals.items)}")
 
     require(len(quests.items) >= 6, f"задания: нужно 6+, есть {len(quests.items)}")
-    require(len(quests.topics) >= 3, f"задания: нужно 3+ темы, есть {len(quests.topics)}")
-    empty_topics = {topic.id for topic in quests.topics} - {quest.topic for quest in quests.items}
-    require(not empty_topics, f"задания: темы без заданий — {sorted(empty_topics)}")
+    # Темы ТЗ 2.5.8 — разделы дорог: «Азбука финансов», «Мастер накоплений»…
+    sections = {(track.id, s.grade) for track in quests.tracks for s in track.sections}
+    require(len(sections) >= 3, f"задания: нужно 3+ темы (раздела), есть {len(sections)}")
+    empty = sections - {(lesson.track, lesson.grade) for lesson in quests.items}
+    require(not empty, f"задания: разделы без заданий — {sorted(empty)}")
 
     require(bool(glossary.items), "глоссарий: нужен хотя бы один термин")
 
-    combinations = len(pets.species) * len(pets.palettes)
+    combinations = pets.combinations
     require(combinations >= 9, f"питомец: нужно 9+ комбинаций внешнего вида, есть {combinations}")
     require(len(pets.name_suggestions) >= 5, "питомец: нужно 5+ готовых имён для подсказки")
+    require(len(pets.stages) >= 3, "питомец: нужно 3+ стадии развития")
 
-    require(len(economy.pet.stages) >= 3, "питомец: нужно 3+ стадии развития")
     require(economy.period.demo_mode_periods >= 5, "демо-режим: нужно 5+ периодов подряд")
+
+    # Ссылка между разделами: стартовый рюкзачок собран из товаров каталога.
+    item_ids = {item.id for item in catalog.items}
+    unknown = sorted({entry.item_id for entry in economy.start.inventory} - item_ids)
+    require(not unknown, f"экономика: в стартовом рюкзачке неизвестные товары — {unknown}")
 
     if problems:
         raise ContentError(

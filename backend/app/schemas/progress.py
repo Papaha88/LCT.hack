@@ -1,20 +1,27 @@
 """Схемы прогресса локального игрового профиля.
 
-Главный сценарий по ТЗ — офлайн: профиль живёт на устройстве (раздел 3.1).
-Сервер нужен только чтобы выгрузить снимок профиля и вернуть его обратно
-(смена устройства, переустановка, проверка экспертом), поэтому обмен идёт
-целым снимком, а не отдельными операциями: клиент — источник правды.
+Главный сценарий по ТЗ — офлайн: профиль живёт на устройстве (раздел 3.1),
+приложение работает без сервера. Сервер — только резервная копия: выгрузить
+снимок профиля и вернуть его обратно (смена устройства, переустановка,
+проверка экспертом), поэтому обмен идёт целым снимком, а не отдельными
+операциями: клиент — источник правды.
+
+Форма снимка повторяет сохранение приложения (`finny_state_v1` в
+`mobile/lib/models/game_state.dart`), только с говорящими id вместо индексов
+enum: `species_id: "cat"` вместо `type: 0`, `variant_id: "v2"` вместо
+`variant: 1`.
 
 Персональные данные не принимаем (ТЗ 3.5): профиль адресуется UUID, который
-генерирует само приложение, а из «личного» в снимке только игровое имя.
+генерирует само приложение, а из «личного» в снимке только игровое имя и
+возраст 7–10 для подбора класса заданий.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
 
 
 class ProgressModel(BaseModel):
@@ -22,29 +29,28 @@ class ProgressModel(BaseModel):
 
 
 class ProfileSettings(ProgressModel):
-    """Настройки доступности (ТЗ 3.6: звук и анимации можно отключить)."""
-
-    sound_enabled: bool = True
-    animations_enabled: bool = True
-    demo_mode: bool = False
+    dark_theme: bool = False
 
 
 class PlayerState(ProgressModel):
     nickname: str = Field(min_length=1, max_length=15)
+    age: int | None = Field(
+        default=None, ge=7, le=10, description="7, 8, 9 или 10 («10+»); null — старый сейв"
+    )
 
 
 class PetStatsState(ProgressModel):
-    satiety: int = Field(ge=0, le=100)
+    satiety: int = Field(ge=0, le=100, description="В приложении — hunger")
     happiness: int = Field(ge=0, le=100)
     cleanliness: int = Field(ge=0, le=100)
 
 
 class PetState(ProgressModel):
     name: str = Field(min_length=1, max_length=15)
-    species_id: str
-    palette_id: str
-    stage_id: str
-    xp: int = Field(ge=0)
+    species_id: str = Field(description="cat | dog | penguin")
+    variant_id: str = Field(description="Окраска: v1 | v2 | v3")
+    level: int = Field(ge=1)
+    xp: int = Field(ge=0, le=99, description="Опыт внутри текущего уровня")
     stats: PetStatsState
 
 
@@ -52,47 +58,17 @@ class WalletState(ProgressModel):
     """Отрицательный баланс запрещён ТЗ 2.5.6 — ограничение `ge=0` здесь и есть
     это правило: снимок с минусом сервер не примет (422)."""
 
-    balance: int = Field(ge=0)
-    savings: int = Field(ge=0, description="Накопления по текущей цели")
-    deposit: int = Field(default=0, ge=0, description="Сумма на вкладе")
+    balance: int = Field(ge=0, description="Монетки в кошельке")
+    savings: int = Field(ge=0, description="Монетки в копилке")
 
 
-class EducationState(ProgressModel):
-    level: int = Field(ge=1)
-    base_income: int = Field(ge=0)
-    purchased_course_ids: list[str] = Field(default_factory=list)
+class GoalState(ProgressModel):
+    """Цель копилки: готовая (`goal_id`) или своя (`goal_id: null`)."""
 
-
-class GoalProgressState(ProgressModel):
-    goal_id: str
-    accumulated: int = Field(ge=0)
-    selected_at: datetime | None = None
-
-
-class BudgetPlanState(ProgressModel):
-    """План периода. После подтверждения не редактируется (ТЗ 2.5.5),
-    поэтому `confirmed` едет в снимке вместе с суммами."""
-
-    period: int = Field(ge=1)
-    available: int = Field(ge=0)
-    mandatory: int = Field(ge=0)
-    optional: int = Field(default=0, ge=0)
-    education: int = Field(default=0, ge=0)
-    savings: int = Field(default=0, ge=0)
-    confirmed: bool = False
-
-    @property
-    def allocated(self) -> int:
-        return self.mandatory + self.optional + self.education + self.savings
-
-    @model_validator(mode="after")
-    def _check_total(self) -> "BudgetPlanState":
-        if self.allocated > self.available:
-            raise ValueError(
-                f"распределено {self.allocated} монет при доступных {self.available}: "
-                "сумма плана не может превышать доступный бюджет"
-            )
-        return self
+    goal_id: str | None = None
+    title: str = Field(min_length=1, max_length=24)
+    emoji: str = Field(min_length=1)
+    target: int = Field(ge=50, le=5000)
 
 
 class InventoryEntry(ProgressModel):
@@ -100,33 +76,38 @@ class InventoryEntry(ProgressModel):
     quantity: int = Field(ge=0)
 
 
-class PurchaseRecord(ProgressModel):
-    item_id: str
-    price: int = Field(ge=0)
-    quantity: int = Field(default=1, ge=1)
-    period: int = Field(ge=1)
-    at: datetime
+class LessonsState(ProgressModel):
+    """Задания дорог. Ошибка не отнимает прогресс — задание уходит в «Повтори»."""
+
+    solved: list[str] = Field(default_factory=list)
+    retry: list[str] = Field(default_factory=list, description="Задачи «Повтори»")
+    mistakes: int = Field(default=0, ge=0)
+    last_solved_day: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def _check(self) -> "LessonsState":
+        if len(set(self.solved)) != len(self.solved) or len(set(self.retry)) != len(self.retry):
+            raise ValueError("lessons: id заданий не должны повторяться")
+        both = set(self.solved) & set(self.retry)
+        if both:
+            raise ValueError(f"lessons: решённое задание попало в «Повтори» — {sorted(both)}")
+        return self
 
 
-class QuestRecord(ProgressModel):
-    quest_id: str
-    option_id: str | None = None
-    result: str = Field(pattern="^(correct|partly|incorrect)$")
-    earned_coins: int = Field(default=0, ge=0)
-    earned_xp: int = Field(default=0, ge=0)
-    period: int = Field(ge=1)
-    at: datetime
+class SkinsState(ProgressModel):
+    owned: list[str] = Field(default_factory=list, description="Купленные образы (навсегда)")
+    equipped: str | None = Field(default=None, description="Надетый образ; null — обычный")
+
+    @model_validator(mode="after")
+    def _check(self) -> "SkinsState":
+        if self.equipped is not None and self.equipped not in self.owned:
+            raise ValueError("skins: надеть можно только купленный образ")
+        return self
 
 
-class PeriodSummary(ProgressModel):
-    """Итог периода: план против факта (ТЗ 2.5.5)."""
-
-    period: int = Field(ge=1)
-    income: int = Field(ge=0)
-    planned: dict[str, int] = Field(default_factory=dict)
-    actual: dict[str, int] = Field(default_factory=dict)
-    saved: int = Field(default=0, ge=0)
-    plan_followed: bool = False
+class StreakState(ProgressModel):
+    days: int = Field(default=0, ge=0, description="Огонёк: дней подряд с действием")
+    last_action_date: date | None = None
 
 
 class ProgressSnapshot(ProgressModel):
@@ -135,32 +116,33 @@ class ProgressSnapshot(ProgressModel):
     schema_version: str = Field(default=SCHEMA_VERSION)
     revision: int = Field(ge=1, description="Счётчик версий на клиенте: растёт при каждой выгрузке")
     updated_at: datetime = Field(description="Время последнего изменения на устройстве")
-    current_period: int = Field(ge=1)
+    day: int = Field(ge=1, description="Текущий период («День N»)")
     player: PlayerState
     pet: PetState
     wallet: WalletState
-    education: EducationState
+    goal: GoalState
+    inventory: list[InventoryEntry] = Field(default_factory=list, description="Рюкзачок")
+    lessons: LessonsState = Field(default_factory=LessonsState)
+    skins: SkinsState = Field(default_factory=SkinsState)
+    streak: StreakState = Field(default_factory=StreakState)
+    last_bonus_date: date | None = Field(default=None, description="Когда выдан бонус за вход")
     settings: ProfileSettings = Field(default_factory=ProfileSettings)
-    goal: GoalProgressState | None = None
-    plan: BudgetPlanState | None = None
-    inventory: list[InventoryEntry] = Field(default_factory=list)
-    purchases: list[PurchaseRecord] = Field(default_factory=list)
-    quests: list[QuestRecord] = Field(default_factory=list)
-    periods: list[PeriodSummary] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check(self) -> "ProgressSnapshot":
-        periods = [summary.period for summary in self.periods]
-        if len(set(periods)) != len(periods):
-            raise ValueError("periods: итоги периода не должны повторяться")
+        ids = [entry.item_id for entry in self.inventory]
+        if len(set(ids)) != len(ids):
+            raise ValueError("inventory: товар должен встречаться один раз")
+        if self.lessons.last_solved_day > self.day:
+            raise ValueError("lessons.last_solved_day не может быть позже текущего дня")
         return self
 
 
 class ContentWarning(BaseModel):
     """Мягкое предупреждение о ссылке на неизвестный серверу контент.
 
-    Не ошибка: у приложения может быть более новый контент (или собственный
-    офлайн-набор), и терять из-за этого прогресс нельзя.
+    Не ошибка: у приложения может быть более новый контент, и терять из-за
+    этого прогресс нельзя.
     """
 
     code: str

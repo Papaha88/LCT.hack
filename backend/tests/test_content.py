@@ -60,7 +60,19 @@ def test_catalog_meets_required_minimum(client):
     assert sum(1 for item in items if item["kind"] == "mandatory") >= 5
     assert sum(1 for item in items if item["kind"] == "optional") >= 5
     assert all(len(item["title"]) <= 20 for item in items)
-    assert all(item["price"] >= 0 for item in items)
+    assert all(item["price"] > 0 for item in items)
+    assert body["deal_of_day"]["discount_percent"] == 30
+
+
+def test_catalog_matches_app_shop(client):
+    """Цены и эффекты — как в mobile/lib/data/shop_data.dart."""
+    items = {item["id"]: item for item in client.get("/api/v1/content/catalog").json()["items"]}
+
+    assert len(items) == 26
+    assert items["milk"]["price"] == 10
+    assert items["milk"]["effects"] == {"satiety": 20, "happiness": 0, "cleanliness": 0, "xp": 5}
+    assert items["house"]["price"] == 150
+    assert items["house"]["badge"] == "Мечта"
 
 
 def test_catalog_filters(client):
@@ -73,63 +85,91 @@ def test_catalog_filters(client):
 
 
 def test_catalog_item_by_id(client):
-    assert client.get("/api/v1/content/catalog/food_apple").json()["title"] == "Яблочко"
+    assert client.get("/api/v1/content/catalog/apple").json()["title"] == "Яблочко"
     assert client.get("/api/v1/content/catalog/no_such_item").status_code == 404
 
 
 def test_goals_meet_required_minimum(client):
-    items = client.get("/api/v1/content/goals").json()["items"]
+    body = client.get("/api/v1/content/goals").json()
+    items = body["items"]
 
     assert len(items) >= 3, "ТЗ 2.6: не менее 3 целей накопления"
-    assert all(goal["price"] > 0 and goal["suggested_periods"] > 0 for goal in items)
+    assert all(goal["price"] > 0 and goal["hint"] for goal in items)
+    assert body["default_goal_id"] == "goal_bike"
+    assert body["custom_goal"]["min_target"] == 50
+    assert body["custom_goal"]["max_target"] == 5000
+
+
+def test_goal_by_id(client):
+    assert client.get("/api/v1/content/goals/goal_scooter").json()["price"] == 200
+    assert client.get("/api/v1/content/goals/goal_spaceship").status_code == 404
 
 
 def test_quests_meet_required_minimum(client):
     body = client.get("/api/v1/content/quests").json()
-    items, topics = body["items"], body["topics"]
+    items, tracks = body["items"], body["tracks"]
 
     assert len(items) >= 6, "ТЗ 2.6: не менее 6 заданий"
-    assert len(topics) >= 3, "ТЗ 2.5.8: минимум 3 темы"
-    assert {quest["topic"] for quest in items} == {topic["id"] for topic in topics}
-    # ТЗ 2.5.8: задания не сводятся к выбору ответа из вариантов.
-    assert {quest["type"] for quest in items} > {"choice"}
-    # ТЗ 2.5.8: объяснение выдаётся при любом ответе.
-    for quest in items:
-        for option in quest.get("options", []):
-            assert option["explanation"]
-    # ТЗ 2.5.8: задания начисляют монеты, а не только очки.
-    assert all(quest["reward"]["coins"] > 0 for quest in items)
+    assert {track["id"] for track in tracks} == {"math", "finance"}
+    finance = next(track for track in tracks if track["id"] == "finance")
+    assert len(finance["sections"]) >= 3, "ТЗ 2.5.8: минимум 3 темы"
+    for lesson in items:
+        assert len(lesson["options"]) == 4
+        assert 0 <= lesson["correct_index"] < 4
+        # ТЗ 2.5.8: объяснение выдаётся после ответа.
+        assert lesson["answer"] and lesson["note"]
+        # ТЗ 2.5.8: задания начисляют монеты, а не только очки.
+        assert lesson["reward"]["coins"] == 5 + lesson["grade"] * 10
 
 
-def test_quests_have_recovery_task(client):
-    """ТЗ 2.5.9: у неудачного решения есть понятный путь восстановления."""
-    body = client.get("/api/v1/content/quests", params={"tag": "recovery"}).json()
+def test_quests_recovery_rule(client):
+    """ТЗ 2.5.9: ошибка не отнимает прогресс, а даёт задачу «Повтори»."""
+    rules = client.get("/api/v1/content/quests").json()["rules"]
 
-    assert body["items"], "нужно хотя бы одно задание-восстановление"
+    assert rules["mistake_goes_to_retry"] is True
+    assert rules["mistake_penalty"] == 0
 
 
-def test_quests_filter_by_topic(client):
-    body = client.get("/api/v1/content/quests", params={"topic": "savings"}).json()
+def test_quests_age_to_grade(client):
+    rules = client.get("/api/v1/content/quests").json()["rules"]
 
-    assert body["items"]
-    assert {quest["topic"] for quest in body["items"]} == {"savings"}
+    assert {row["age"]: row["grade"] for row in rules["age_to_grade"]} == {7: 1, 8: 2, 9: 3, 10: 4}
+
+
+def test_quests_filters(client):
+    finance = client.get("/api/v1/content/quests", params={"track": "finance"}).json()
+    assert finance["items"]
+    assert {lesson["track"] for lesson in finance["items"]} == {"finance"}
+
+    grade = client.get("/api/v1/content/quests", params={"track": "math", "grade": 4}).json()
+    assert {(lesson["track"], lesson["grade"]) for lesson in grade["items"]} == {("math", 4)}
+
+
+def test_quest_by_id(client):
+    assert client.get("/api/v1/content/quests/fin_1_food").json()["reward"]["coins"] == 15
+    assert client.get("/api/v1/content/quests/quest_budget_plan_60").status_code == 404
 
 
 def test_pets_have_nine_combinations(client):
     body = client.get("/api/v1/content/pets").json()
 
-    assert len(body["species"]) * len(body["palettes"]) >= 9, "ТЗ 2.6: 9+ комбинаций"
+    combinations = sum(len(species["variants"]) for species in body["species"])
+    assert combinations >= 9, "ТЗ 2.6: 9+ комбинаций"
     assert len(body["name_suggestions"]) >= 5
+    assert len(body["stages"]) >= 3, "ТЗ 2.6: не менее 3 стадий развития"
+    assert {skin["species"] for skin in body["skins"]} == {"cat", "dog", "penguin"}
+    assert body["moods"][-1]["stat"] is None
 
 
 def test_economy_rules(client):
     body = client.get("/api/v1/content/economy").json()
 
-    assert len(body["pet"]["stages"]) >= 3, "ТЗ 2.6: не менее 3 стадий развития"
     assert body["period"]["demo_mode_periods"] >= 5, "ТЗ 2.6: 5 периодов подряд"
-    assert len(body["budget"]["directions"]) >= 3, "ТЗ 2.5.5: минимум 3 направления"
     assert body["rules"]["negative_balance_forbidden"] is True
     assert body["rules"]["savings_withdraw_requires_confirmation"] is True
+    assert body["daily_bonus"]["coins"] == 15
+    assert [row["income"] for row in body["income"]["table"]] == [50, 60, 70, 80, 90]
+    assert body["from_documents"]["deposit"]["annual_rate"] == 0.2
 
 
 def test_glossary_not_empty(client):

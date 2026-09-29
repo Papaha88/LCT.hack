@@ -1,32 +1,272 @@
 {
-  "version": "1.0.0",
-  "updated_at": "2026-09-21",
+  "version": "2.0.0",
+  "updated_at": "2026-09-29",
+  "source": "mobile/lib/models/pet.dart, mobile/lib/data/skins_data.dart",
   "species": [
-    { "id": "cat", "title": "Кошечка", "emoji": "🐱" },
-    { "id": "dog", "title": "Собачка", "emoji": "🐶" },
-    { "id": "penguin", "title": "Пингвинчик", "emoji": "🐧" }
+    {
+      "id": "cat",
+      "title": "Кошечка",
+      "emoji": "🐱",
+      "variants": [
+        {
+          "id": "v1",
+          "title": "Рыжик",
+          "bg_start": "#FFE0B2",
+          "bg_end": "#FFB74D",
+          "accent": "#E65100"
+        },
+        {
+          "id": "v2",
+          "title": "Дымок",
+          "bg_start": "#CFD8DC",
+          "bg_end": "#90A4B0",
+          "accent": "#37474F"
+        },
+        {
+          "id": "v3",
+          "title": "Снежок",
+          "bg_start": "#FFF8E1",
+          "bg_end": "#FFECB3",
+          "accent": "#8D6E63"
+        }
+      ]
+    },
+    {
+      "id": "dog",
+      "title": "Собачка",
+      "emoji": "🐶",
+      "variants": [
+        {
+          "id": "v1",
+          "title": "Шоколад",
+          "bg_start": "#D7CCC8",
+          "bg_end": "#A1887F",
+          "accent": "#4E342E"
+        },
+        {
+          "id": "v2",
+          "title": "Карамель",
+          "bg_start": "#FFE0B2",
+          "bg_end": "#FFCC80",
+          "accent": "#EF6C00"
+        },
+        {
+          "id": "v3",
+          "title": "Уголёк",
+          "bg_start": "#BDBDBD",
+          "bg_end": "#616161",
+          "accent": "#212121"
+        }
+      ]
+    },
+    {
+      "id": "penguin",
+      "title": "Пингвинчик",
+      "emoji": "🐧",
+      "variants": [
+        {
+          "id": "v1",
+          "title": "Морячок",
+          "bg_start": "#BBDEFB",
+          "bg_end": "#64B5F6",
+          "accent": "#0D47A1"
+        },
+        {
+          "id": "v2",
+          "title": "Льдинка",
+          "bg_start": "#E0F7FA",
+          "bg_end": "#80DEEA",
+          "accent": "#006064"
+        },
+        {
+          "id": "v3",
+          "title": "Пончик",
+          "bg_start": "#F8BBD0",
+          "bg_end": "#F48FB1",
+          "accent": "#AD1457"
+        }
+      ]
+    }
   ],
-  "palettes": [
-    { "id": "sunny", "title": "Солнечный", "body": "#f7b955", "belly": "#fff3d6", "accent": "#e8892b" },
-    { "id": "mint", "title": "Мятный", "body": "#7fd1b9", "belly": "#e5fbf4", "accent": "#2f9c82" },
-    { "id": "berry", "title": "Ягодный", "body": "#e07a9c", "belly": "#ffe6ef", "accent": "#b34a70" }
+  "skins": [
+    {
+      "id": "cat_astronaut",
+      "species": "cat",
+      "title": "Космонавт",
+      "emoji": "🚀",
+      "price": 60,
+      "description": "Летим к звёздам!",
+      "bg_start": "#B3C7FF",
+      "bg_end": "#5C6BC0"
+    },
+    {
+      "id": "cat_princess",
+      "species": "cat",
+      "title": "Принцесса",
+      "emoji": "👑",
+      "price": 90,
+      "description": "Настоящая королевская особа.",
+      "bg_start": "#FFD1E8",
+      "bg_end": "#F06292"
+    },
+    {
+      "id": "cat_detective",
+      "species": "cat",
+      "title": "Детектив",
+      "emoji": "🔍",
+      "price": 140,
+      "description": "Найдёт каждую потерянную монетку.",
+      "bg_start": "#D7CCC8",
+      "bg_end": "#8D6E63"
+    },
+    {
+      "id": "dog_firefighter",
+      "species": "dog",
+      "title": "Пожарный",
+      "emoji": "🚒",
+      "price": 60,
+      "description": "Всегда спешит на помощь.",
+      "bg_start": "#FFCDD2",
+      "bg_end": "#E53935"
+    },
+    {
+      "id": "dog_football",
+      "species": "dog",
+      "title": "Футболист",
+      "emoji": "⚽",
+      "price": 90,
+      "description": "Гол! И ещё один!",
+      "bg_start": "#C8E6C9",
+      "bg_end": "#43A047"
+    },
+    {
+      "id": "dog_chef",
+      "species": "dog",
+      "title": "Повар",
+      "emoji": "🍳",
+      "price": 140,
+      "description": "Готовит самый вкусный обед.",
+      "bg_start": "#FFF3C4",
+      "bg_end": "#FFB300"
+    },
+    {
+      "id": "penguin_sailor",
+      "species": "penguin",
+      "title": "Капитан",
+      "emoji": "⚓",
+      "price": 60,
+      "description": "Полный вперёд!",
+      "bg_start": "#B3E5FC",
+      "bg_end": "#0288D1"
+    },
+    {
+      "id": "penguin_scientist",
+      "species": "penguin",
+      "title": "Учёный",
+      "emoji": "🔬",
+      "price": 90,
+      "description": "Изучает, как растут монетки.",
+      "bg_start": "#E1BEE7",
+      "bg_end": "#8E24AA"
+    },
+    {
+      "id": "penguin_rockstar",
+      "species": "penguin",
+      "title": "Рок-звезда",
+      "emoji": "🎸",
+      "price": 140,
+      "description": "Зажигает на сцене!",
+      "bg_start": "#FFE0B2",
+      "bg_end": "#FF7043"
+    }
+  ],
+  "stages": [
+    {
+      "id": "baby",
+      "title": "Малыш",
+      "emoji": "🌱",
+      "min_level": 1
+    },
+    {
+      "id": "teen",
+      "title": "Подросток",
+      "emoji": "🌿",
+      "min_level": 2
+    },
+    {
+      "id": "adult",
+      "title": "Взрослый",
+      "emoji": "🌳",
+      "min_level": 3
+    }
+  ],
+  "moods": [
+    {
+      "id": "sad",
+      "emoji": "😢",
+      "phrase": "Мне грустно…",
+      "stat": "min",
+      "op": "lte",
+      "value": 20
+    },
+    {
+      "id": "hungry",
+      "emoji": "😋",
+      "phrase": "Хочу кушать",
+      "stat": "satiety",
+      "op": "lte",
+      "value": 40
+    },
+    {
+      "id": "dirty",
+      "emoji": "😣",
+      "phrase": "Пора умыться",
+      "stat": "cleanliness",
+      "op": "lte",
+      "value": 40
+    },
+    {
+      "id": "bored",
+      "emoji": "🥱",
+      "phrase": "Поиграем?",
+      "stat": "happiness",
+      "op": "lte",
+      "value": 40
+    },
+    {
+      "id": "joyful",
+      "emoji": "😄",
+      "phrase": "Мне так хорошо!",
+      "stat": "min",
+      "op": "gte",
+      "value": 75
+    },
+    {
+      "id": "calm",
+      "emoji": "🙂",
+      "phrase": "Всё хорошо",
+      "stat": null,
+      "op": null,
+      "value": null
+    }
   ],
   "name_suggestions": [
-    "Кекс",
+    "Мурзик",
+    "Барсик",
+    "Снежок",
+    "Рекс",
+    "Шарик",
     "Пушок",
-    "Барни",
-    "Мокко",
-    "Тучка",
-    "Персик",
-    "Зефир",
-    "Лучик",
-    "Бублик",
-    "Финик"
+    "Кексик",
+    "Звёздочка",
+    "Тимошка",
+    "Пушистик"
   ],
   "nickname_rules": {
-    "min_length": 2,
+    "min_length": 1,
     "max_length": 15,
     "trim_spaces": true,
-    "hint": "Максимум 15 символов, чтобы имя влезало в реплики Финни."
+    "profanity_filter": true,
+    "hint": "До 15 символов, пробелы по краям убираются, грубые слова не пропускаются."
   }
 }
