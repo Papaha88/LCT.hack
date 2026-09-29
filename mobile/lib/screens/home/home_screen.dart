@@ -6,7 +6,6 @@ import '../../data/shop_data.dart';
 import '../../models/game_state.dart';
 import '../../models/pet.dart';
 import '../../models/player_profile.dart';
-import '../../services/pet_assets.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
 import '../../widgets/day_paper.dart';
@@ -33,7 +32,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   /// Счётчик реакций питомца: каждое действие — прыжок и «огонёк».
   int _reaction = 0;
-  PetAnim _reactionAnim = PetAnim.happy;
+  PetReaction _reactionKind = PetReaction.happy;
 
   @override
   void initState() {
@@ -72,11 +71,11 @@ class _HomeScreenState extends State<HomeScreen> {
     game.claimDailyBonusIfNeeded();
   }
 
-  void _react(PetAnim anim) {
+  void _react(PetReaction kind) {
     if (!mounted) return;
     setState(() {
       _reaction++;
-      _reactionAnim = anim;
+      _reactionKind = kind;
     });
   }
 
@@ -97,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Кормление даёт опыт — питомец мог дорасти до нового уровня.
     await showLevelUpIfNeeded(context);
     if (lastKind != null) {
-      _react(lastKind == ItemKind.food ? PetAnim.eat : PetAnim.happy);
+      _react(lastKind == ItemKind.food ? PetReaction.eat : PetReaction.happy);
     }
   }
 
@@ -106,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final summary = GameStateScope.read(context).nextDay();
     if (!mounted) return;
     await showDayPaper(context, summary);
-    _react(PetAnim.sleep);
+    _react(PetReaction.sleep);
   }
 
   @override
@@ -149,8 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            if (age != null)
-              _Chip(text: '👦 ${PlayerProfile.labelFor(age)}'),
+            if (age != null) _Chip(text: '👦 ${PlayerProfile.labelFor(age)}'),
           ],
         ),
         const SizedBox(height: 10),
@@ -169,9 +167,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _PetStage(
           pet: pet,
           mood: mood,
-          skinLevel: pet.level,
           reaction: _reaction,
-          reactionAnim: _reactionAnim,
+          reactionKind: _reactionKind,
           onTap: _openBackpack,
         ),
         const SizedBox(height: 12),
@@ -220,8 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             lesson.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
                             retry
@@ -268,26 +264,22 @@ class _HomeScreenState extends State<HomeScreen> {
 class _PetStage extends StatelessWidget {
   final Pet pet;
   final PetMood mood;
-  final int skinLevel;
   final int reaction;
-  final PetAnim reactionAnim;
+  final PetReaction reactionKind;
   final VoidCallback onTap;
 
   const _PetStage({
     required this.pet,
     required this.mood,
-    required this.skinLevel,
     required this.reaction,
-    required this.reactionAnim,
+    required this.reactionKind,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final game = GameStateScope.of(context);
     final look = PetLook.of(pet.type, pet.variant);
-    final skin = game.skin;
-    final tint = skin?.bgEnd ?? look.bgEnd;
+    final tint = look.bgEnd;
     final scheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -342,12 +334,13 @@ class _PetStage extends StatelessWidget {
                 child: PetModel(
                   type: pet.type,
                   variant: pet.variant,
-                  skin: skin,
-                  level: skinLevel,
-                  size: 176,
-                  mood: mood,
+                  level: pet.level,
+                  size: 200,
+                  emotion: pet.emotion,
+                  // Живой ролик — только здесь, на главном экране.
+                  animated: true,
                   reaction: reaction,
-                  reactionAnim: reactionAnim,
+                  reactionKind: reactionKind,
                 ),
               ),
             ),
@@ -585,7 +578,8 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: big ? 10 : 6),
+      padding: EdgeInsets.symmetric(
+          horizontal: big ? 6 : 12, vertical: big ? 10 : 6),
       alignment: big ? Alignment.center : null,
       decoration: BoxDecoration(
         color: KidsTheme.pill(context),

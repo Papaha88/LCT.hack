@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/goals_data.dart';
 import '../data/lessons_data.dart';
 import '../data/shop_data.dart';
-import '../data/skins_data.dart';
 import '../services/name_filter.dart';
 import 'pet.dart';
 import 'player_profile.dart';
@@ -24,6 +23,9 @@ const int levelUpCoins = 25;
 
 /// Бонус за возвращение в новый день.
 const int dailyBonus = 15;
+
+/// Сколько стоит перекрасить питомца в магазине.
+const int recolorPrice = 40;
 
 /// Сколько питомец «тратит» за прошедший день.
 const int dayHungerCost = 15;
@@ -165,11 +167,6 @@ class GameState extends ChangeNotifier {
   /// Дата последнего ежедневного бонуса (yyyy-MM-dd).
   String? lastBonusDate;
 
-  /// Купленные скины (навсегда, не расходуются).
-  Set<String> ownedSkins = {};
-
-  /// Надетый скин; null — обычная окраска.
-  String? skinId;
 
   /// «Огонёк»: сколько дней подряд ребёнок что-то делал в игре.
   int streak = 0;
@@ -180,6 +177,9 @@ class GameState extends ChangeNotifier {
   /// Счётчик действий за сессию: растёт на каждое действие, по нему
   /// огонёк в шапке вспыхивает. Не сохраняется.
   int actionPulse = 0;
+
+  /// Помощник в заданиях уже показывался (выезжает один раз).
+  bool questsGuideSeen = false;
 
   /// Бонус за возвращение, который ещё не показали на главной.
   /// Показывается плашкой, а не диалогом. Не сохраняется.
@@ -266,6 +266,14 @@ class GameState extends ChangeNotifier {
     return true;
   }
 
+  /// Помощник в заданиях показан — больше не выезжает.
+  void markQuestsGuideSeen() {
+    if (questsGuideSeen) return;
+    questsGuideSeen = true;
+    notifyListeners();
+    save();
+  }
+
   /// Плашку бонуса закрыли.
   void dismissBonus() {
     if (pendingBonus == 0) return;
@@ -290,37 +298,22 @@ class GameState extends ChangeNotifier {
   /// Огонёк горит, если сегодня уже было действие.
   bool get streakLitToday => lastActionDate == _today();
 
-  /// Скин, надетый на питомца (только своего вида).
-  PetSkin? get skin {
-    final s = skinById(skinId);
-    if (s == null || s.type != pet?.type) return null;
-    return s;
-  }
-
-  /// Купить скин. False — не хватило монет или уже куплен.
-  bool buySkin(String id) {
-    final s = skinById(id);
-    if (s == null || ownedSkins.contains(id) || balance < s.price) {
-      return false;
-    }
-    balance -= s.price;
-    ownedSkins.add(id);
-    skinId = id;
+  /// Перекрасить питомца в магазине. Та же окраска — бесплатно (ничего
+  /// не меняется). False — не хватило монет.
+  bool recolorPet(PetVariant variant) {
+    final p = pet;
+    if (p == null) return false;
+    if (p.variant == variant) return true;
+    if (balance < recolorPrice) return false;
+    balance -= recolorPrice;
+    p.variant = variant;
     _registerAction();
     notifyListeners();
     save();
     return true;
   }
 
-  /// Надеть купленный скин или снять (null).
-  void equipSkin(String? id) {
-    if (id != null && !ownedSkins.contains(id)) return;
-    skinId = id;
-    notifyListeners();
-    save();
-  }
-
-  // ───── Режим разработчика (скрыт в настройках) ─────
+  // ───── Режим эксперта (настройки → «Для экспертов») ─────
 
   /// Опыт без прокрутки дней. Уровень и награды — как в обычной игре.
   void devAddXp(int amount) {
@@ -342,6 +335,58 @@ class GameState extends ChangeNotifier {
     p.hunger = 100;
     p.happiness = 100;
     p.cleanliness = 100;
+    notifyListeners();
+    save();
+  }
+
+  /// Сразу поставить уровень (без наград) — посмотреть модель нужного
+  /// возраста: 1–11 малыш, 12–34 подросток, 35+ взрослый.
+  void devSetLevel(int level) {
+    final p = pet;
+    if (p == null || level < 1) return;
+    p.level = level;
+    p.xp = 0;
+    pendingLevelUp = null;
+    notifyListeners();
+    save();
+  }
+
+  /// Поставить счастье — проверить эмоцию модели (<33, 33–66, >66).
+  void devSetHappiness(int value) {
+    final p = pet;
+    if (p == null) return;
+    p.happiness = _stat(value);
+    notifyListeners();
+    save();
+  }
+
+  /// Прокрутить несколько дней подряд: доход и траты — как в игре.
+  void devSkipDays(int days) {
+    for (var i = 0; i < days; i++) {
+      nextDay();
+    }
+  }
+
+  /// Отметить все задания решёнными (без монет) — посмотреть финиш дорог.
+  void devSolveAllLessons() {
+    lessonsSolved = {for (final l in lessonsCatalog) l.id};
+    lessonsRetry = {};
+    notifyListeners();
+    save();
+  }
+
+  /// Снова показать помощника в заданиях.
+  void devResetGuide() {
+    questsGuideSeen = false;
+    notifyListeners();
+    save();
+  }
+
+  /// +1 день к огоньку (серия продлена сегодня).
+  void devBumpStreak() {
+    streak += 1;
+    lastActionDate = _today();
+    actionPulse += 1;
     notifyListeners();
     save();
   }
@@ -390,10 +435,9 @@ class GameState extends ChangeNotifier {
     lessonsRetry = {};
     lessonMistakes = 0;
     lessonGivenDay = 1;
-    ownedSkins = {};
-    skinId = null;
     streak = 0;
     lastActionDate = null;
+    questsGuideSeen = false;
     lastBonusDate = _today();
     pendingLevelUp = null;
     onboardingDone = true;
@@ -633,9 +677,8 @@ class GameState extends ChangeNotifier {
         'lessonMistakes': lessonMistakes,
         'lessonGivenDay': lessonGivenDay,
         'lastBonusDate': lastBonusDate,
-        'ownedSkins': ownedSkins.toList(),
-        'skinId': skinId,
         'streak': streak,
+        'questsGuideSeen': questsGuideSeen,
         'lastActionDate': lastActionDate,
       };
       await prefs.setString(_prefsKey, jsonEncode(data));
@@ -704,16 +747,8 @@ class GameState extends ChangeNotifier {
       final lb = decoded['lastBonusDate'];
       if (lb is String) lastBonusDate = lb;
 
-      final rawSkins = decoded['ownedSkins'];
-      if (rawSkins is List) {
-        ownedSkins = rawSkins
-            .whereType<String>()
-            .where((id) => skinById(id) != null)
-            .toSet();
-      }
-      final sk = decoded['skinId'];
-      skinId = sk is String && ownedSkins.contains(sk) ? sk : null;
       streak = readInt('streak', 0);
+      questsGuideSeen = decoded['questsGuideSeen'] == true;
       final la = decoded['lastActionDate'];
       if (la is String) lastActionDate = la;
     } catch (_) {
@@ -743,10 +778,9 @@ class GameState extends ChangeNotifier {
     lessonsRetry = {};
     lessonMistakes = 0;
     lessonGivenDay = 1;
-    ownedSkins = {};
-    skinId = null;
     streak = 0;
     lastActionDate = null;
+    questsGuideSeen = false;
     actionPulse = 0;
     pendingBonus = 0;
     lastBonusDate = null;

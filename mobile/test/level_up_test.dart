@@ -62,11 +62,28 @@ void main() {
     expect(event.levelsGained, 1);
     expect(event.stageFrom, Pet.stageForLevel(1));
     expect(event.stageTo, Pet.stageForLevel(2));
-    expect(event.stageChanged, isTrue, reason: 'Малыш → Подросток');
+    expect(event.stageChanged, isFalse,
+        reason: 'до уровня $teenLevel питомец остаётся малышом');
     expect(event.incomeTo - event.incomeFrom, 10);
 
     expect(game.consumeLevelUp(), isNull,
         reason: 'второй раз показывать нечего');
+  });
+
+  test('этапы: малыш до $teenLevel, подросток до $adultLevel, дальше взрослый',
+      () async {
+    expect(Pet.stageOf(1), PetStage.baby);
+    expect(Pet.stageOf(teenLevel - 1), PetStage.baby);
+    expect(Pet.stageOf(teenLevel), PetStage.teen);
+    expect(Pet.stageOf(adultLevel - 1), PetStage.teen);
+    expect(Pet.stageOf(adultLevel), PetStage.adult);
+
+    final game = await readyGame();
+    game.pet!.level = teenLevel - 1;
+    game.pet!.xp = 95;
+    game.deposit(10);
+    final event = game.consumeLevelUp()!;
+    expect(event.stageChanged, isTrue, reason: 'Малыш → Подросток');
   });
 
   test('без роста уровня события не появляется', () async {
@@ -82,6 +99,8 @@ void main() {
       (tester) async {
     await narrow(tester);
     final game = await readyGame();
+    // Граница этапа: экран покажет и новый уровень, и «вырос».
+    game.pet!.level = teenLevel - 1;
     game.pet!.xp = 95;
     game.deposit(10);
 
@@ -106,9 +125,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('НОВЫЙ УРОВЕНЬ!'), findsOneWidget);
-    expect(find.text('Уровень 2'), findsOneWidget);
+    expect(find.text('Уровень $teenLevel'), findsOneWidget);
     expect(find.text('+$levelUpCoins'), findsOneWidget);
-    expect(find.text('Барсик вырос: ${Pet.stageForLevel(2)}'), findsOneWidget);
+    expect(find.text('Барсик вырос: ${Pet.stageForLevel(teenLevel)}'),
+        findsOneWidget);
     expect(find.byType(PetModel), findsOneWidget);
     expect(tester.takeException(), isNull,
         reason: 'экран нового уровня переполнился');

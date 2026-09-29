@@ -32,7 +32,7 @@ void main() {
     test('названия совпадают с README', () {
       expect(PetLook.of(PetType.cat, PetVariant.v1).label, 'Рыжик');
       expect(PetLook.of(PetType.cat, PetVariant.v2).label, 'Дымок');
-      expect(PetLook.of(PetType.cat, PetVariant.v3).label, 'Снежок');
+      expect(PetLook.of(PetType.cat, PetVariant.v3).label, 'Ночка');
       expect(PetLook.of(PetType.dog, PetVariant.v1).label, 'Шоколад');
       expect(PetLook.of(PetType.dog, PetVariant.v2).label, 'Карамель');
       expect(PetLook.of(PetType.dog, PetVariant.v3).label, 'Уголёк');

@@ -4,11 +4,12 @@ import '../../app.dart';
 import '../../models/pet.dart';
 import '../level_up/level_up_screen.dart';
 
-/// Режим разработчика: опыт, монеты и статы без прокрутки дней.
+/// Режим эксперта: быстро посмотреть всё, что в обычной игре занимает
+/// дни, — возраст и эмоции питомца, уровни, финиш дорог, огонёк.
 ///
-/// Открывается скрыто — 7 нажатий на строку версии внизу настроек.
-/// Всё работает через обычные методы GameState, поэтому уровень,
-/// награды и экран роста ведут себя как в настоящей игре.
+/// Открывается кнопкой «Для экспертов» в настройках. Работает через
+/// методы GameState, поэтому правила игры (доход, траты, награды)
+/// те же, что у ребёнка.
 class DevScreen extends StatelessWidget {
   const DevScreen({super.key});
 
@@ -22,55 +23,169 @@ class DevScreen extends StatelessWidget {
       await showLevelUpIfNeeded(context);
     }
 
+    void run(void Function() action) => action();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('🛠 Разработчик')),
+      appBar: AppBar(title: const Text('🧪 Режим эксперта')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           if (pet != null)
-            Text(
-              'Уровень ${pet.level} (${Pet.stageForLevel(pet.level)}) • '
-              'XP ${pet.xp}/100 • 🪙 ${game.balance}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Text(
+                  '${pet.name}: уровень ${pet.level} • ${pet.stage}\n'
+                  'XP ${pet.xp}/100 • счастье ${pet.happiness} '
+                  '(${_emotionTitle(pet.emotion)})\n'
+                  'День ${game.day} • 🪙 ${game.balance} • 🔥 ${game.streak}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    height: 1.4,
+                  ),
+                ),
+              ),
             ),
-          const SizedBox(height: 16),
-          const Text('Опыт'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          _Section(
+            title: 'Уровень и опыт',
+            hint: 'С наградами и экраном роста — как в игре',
             children: [
-              _DevButton(label: '+10 XP', onTap: () => xp(10)),
               _DevButton(label: '+50 XP', onTap: () => xp(50)),
               _DevButton(label: '+1 уровень', onTap: () => xp(100)),
-              _DevButton(label: '+3 уровня', onTap: () => xp(300)),
+              _DevButton(label: '+5 уровней', onTap: () => xp(500)),
+              _DevButton(label: '+10 уровней', onTap: () => xp(1000)),
             ],
           ),
-          const SizedBox(height: 16),
-          const Text('Монеты и питомец'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          _Section(
+            title: 'Возраст модели',
+            hint: 'Уровень сразу, без наград: '
+                '1–${teenLevel - 1} малыш, $teenLevel–${adultLevel - 1} '
+                'подросток, $adultLevel+ взрослый',
             children: [
               _DevButton(
+                label: 'Малыш (ур. 1)',
+                onTap: () => run(() => game.devSetLevel(1)),
+              ),
+              _DevButton(
+                label: 'Подросток (ур. $teenLevel)',
+                onTap: () => run(() => game.devSetLevel(teenLevel)),
+              ),
+              _DevButton(
+                label: 'Взрослый (ур. $adultLevel)',
+                onTap: () => run(() => game.devSetLevel(adultLevel)),
+              ),
+            ],
+          ),
+          _Section(
+            title: 'Эмоция модели',
+            hint: 'По счастью: <$sadBelow грустный, >$happyAbove весёлый',
+            children: [
+              _DevButton(
+                label: '😢 Грустный',
+                onTap: () => run(() => game.devSetHappiness(15)),
+              ),
+              _DevButton(
+                label: '🙂 Обычный',
+                onTap: () => run(() => game.devSetHappiness(50)),
+              ),
+              _DevButton(
+                label: '😄 Весёлый',
+                onTap: () => run(() => game.devSetHappiness(95)),
+              ),
+              _DevButton(
+                label: 'Все статы 100',
+                onTap: () => run(game.devRestorePet),
+              ),
+              _DevButton(
+                label: 'Все статы 10',
+                onTap: () => run(game.devDrainPet),
+              ),
+            ],
+          ),
+          _Section(
+            title: 'Время и деньги',
+            hint: 'Дни — с доходом и тратами, без «бумажки»',
+            children: [
+              _DevButton(
+                label: '+1 день',
+                onTap: () => run(() => game.devSkipDays(1)),
+              ),
+              _DevButton(
+                label: '+5 дней',
+                onTap: () => run(() => game.devSkipDays(5)),
+              ),
+              _DevButton(
                 label: '+100 🪙',
-                onTap: () => GameStateScope.read(context).devAddCoins(100),
+                onTap: () => run(() => game.devAddCoins(100)),
               ),
               _DevButton(
                 label: '+1000 🪙',
-                onTap: () => GameStateScope.read(context).devAddCoins(1000),
+                onTap: () => run(() => game.devAddCoins(1000)),
               ),
               _DevButton(
-                label: 'Статы 100',
-                onTap: () => GameStateScope.read(context).devRestorePet(),
-              ),
-              _DevButton(
-                label: 'Статы 10',
-                onTap: () => GameStateScope.read(context).devDrainPet(),
+                label: '🔥 +1 к огоньку',
+                onTap: () => run(game.devBumpStreak),
               ),
             ],
           ),
+          _Section(
+            title: 'Задания',
+            children: [
+              _DevButton(
+                label: 'Решить все',
+                onTap: () => run(game.devSolveAllLessons),
+              ),
+              _DevButton(
+                label: 'Сбросить задания',
+                onTap: () => run(game.resetLessons),
+              ),
+              _DevButton(
+                label: 'Показать помощника',
+                onTap: () => run(game.devResetGuide),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _emotionTitle(PetEmotion e) {
+    switch (e) {
+      case PetEmotion.sad:
+        return 'грустный';
+      case PetEmotion.normal:
+        return 'обычный';
+      case PetEmotion.happy:
+        return 'весёлый';
+    }
+  }
+}
+
+class _Section extends StatelessWidget {
+  final String title;
+  final String? hint;
+  final List<Widget> children;
+
+  const _Section({required this.title, this.hint, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          if (hint != null)
+            Text(
+              hint!,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: children),
         ],
       ),
     );

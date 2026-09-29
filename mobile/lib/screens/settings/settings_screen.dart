@@ -8,7 +8,7 @@ import '../dev/dev_screen.dart';
 import '../parent/parent_gate.dart';
 import '../parent/parent_screen.dart';
 
-/// Настройки: профиль, родительский режим, о приложении.
+/// Настройки: профиль, родительский режим, режим эксперта, о приложении.
 /// Открываются шестерёнкой в AppBar (не занимают вкладку навигации).
 ///
 /// Смена возраста и сброс прогресса живут в родительском режиме —
@@ -16,21 +16,15 @@ import '../parent/parent_screen.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
-  /// Версия внизу экрана. Семь нажатий на неё — режим разработчика.
-  static const String version = 'Версия 0.2.0';
+  /// Версия внизу экрана.
+  static const String version = 'Версия 0.3.0';
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  /// Счётчик нажатий на версию (скрытый вход для разработчиков).
-  int _versionTaps = 0;
-
-  void _onVersionTap() {
-    _versionTaps++;
-    if (_versionTaps < 7) return;
-    _versionTaps = 0;
+  void _openExpertMode() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const DevScreen()),
     );
@@ -138,19 +132,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          // Обычная серая подпись — ничем не выдаёт, что на неё можно жать.
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _onVersionTap,
-            child: SizedBox(
-              height: 48,
-              child: Center(
-                child: Text(
-                  SettingsScreen.version,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ),
+          const SizedBox(height: 12),
+          // Отдельно от детских настроек: инструменты для жюри и команды.
+          Card(
+            child: ListTile(
+              leading: const Text('🧪', style: TextStyle(fontSize: 24)),
+              title: const Text('Для экспертов'),
+              subtitle: const Text(
+                  'Уровни, возраст и эмоции питомца, дни — без ожидания'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _openExpertMode,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              SettingsScreen.version,
+              style: TextStyle(color: scheme.onSurfaceVariant),
             ),
           ),
         ],

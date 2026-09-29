@@ -4,7 +4,7 @@ import '../../widgets/finny_avatar.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
 
-/// Шаг 1. Экран приветствия: машущий Финни + кнопка «Далее».
+/// Шаг 1. Экран приветствия: Финни (без качания) + кнопка «Далее».
 class WelcomeScreen extends StatelessWidget {
   final VoidCallback onNext;
 
@@ -21,7 +21,7 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 children: [
                   SizedBox(height: 16),
-                  FinnyAvatar(size: 150, waving: true),
+                  FinnyAvatar(size: 150),
                   SizedBox(height: 20),
                   FinnyBubble(
                     text: 'Привет! Я — Финни, твой помощник!\n'

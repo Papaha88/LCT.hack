@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 /// `assets/images/finny.jpg`, та же, что на иконке приложения).
 ///
 /// Круглая аватарка с золотой рамкой. В режиме [waving] Финни
-/// легонько покачивается и подпрыгивает — «машет» ребёнку.
+/// легонько покачивается — по умолчанию выключено: качание отвлекало.
 class FinnyAvatar extends StatefulWidget {
   final double size;
   final bool waving;
 
-  const FinnyAvatar({super.key, this.size = 120, this.waving = true});
+  const FinnyAvatar({super.key, this.size = 120, this.waving = false});
 
   static const String asset = 'assets/images/finny.jpg';
 
