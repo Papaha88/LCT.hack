@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../app.dart';
 import '../../data/shop_data.dart';
-import '../../data/skins_data.dart';
 import '../../models/game_state.dart';
 import '../../models/pet.dart';
 import '../../theme/kids_theme.dart';
 import '../../widgets/action_spark.dart';
-import '../../widgets/pet_model.dart';
+import '../../widgets/kids_button.dart';
+import '../../widgets/loop_carousel.dart';
+import '../../widgets/pet_poster_card.dart';
 
-/// Магазин: шесть отделов (еда, уход, здоровье, игры, наряды, уют),
-/// образы питомца и скидка дня. Купленное падает в рюкзачок
-/// (тап по питомцу на главном экране).
+/// Магазин: перекраска питомца, скидка дня и шесть отделов (еда, уход,
+/// здоровье, игры, наряды, уют). Купленное падает в рюкзачок (тап по
+/// питомцу на главном экране). Баланс — в верхней панели (MainShell),
+/// чтобы он был виден при прокрутке.
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
 
@@ -34,50 +36,27 @@ class _ShopScreenState extends State<ShopScreen> {
     }
   }
 
-  void _buySkin(PetSkin skin) {
-    if (GameStateScope.read(context).buySkin(skin.id)) {
-      setState(() => _sparks[skin.id] = (_sparks[skin.id] ?? 0) + 1);
+  void _recolor(PetVariant variant) {
+    if (GameStateScope.read(context).recolorPet(variant)) {
+      setState(() => _sparks['recolor'] = (_sparks['recolor'] ?? 0) + 1);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final game = GameStateScope.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final deal = dealOfDay(game.day);
     final kinds = _kind == null ? ItemKind.values : [_kind!];
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Баланс — справа сверху: сколько можно потратить.
-        Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: KidsTheme.pill(context),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              '🪙 ${game.balance}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: scheme.onSurface,
-              ),
-            ),
-          ),
-        ),
-        if (game.pet != null) ...[
-          const SizedBox(height: 12),
-          _SkinsSection(
+        if (game.pet != null)
+          _RecolorSection(
             game: game,
-            sparks: _sparks,
-            onBuy: _buySkin,
+            spark: _sparks['recolor'] ?? 0,
+            onRecolor: _recolor,
           ),
-        ],
         const SizedBox(height: 12),
         _DealCard(
           item: deal,
@@ -147,149 +126,70 @@ class _ShopScreenState extends State<ShopScreen> {
   }
 }
 
-/// «Образы» питомца: три скина его вида. Купленный скин остаётся
-/// навсегда — его можно надеть и снять.
-class _SkinsSection extends StatelessWidget {
+/// Перекраска питомца: та же карусель, что в начале игры. Листаешь —
+/// видишь питомца в новом цвете (постер его нынешнего возраста),
+/// нажимаешь «Перекрасить» — и он такой на главном экране.
+class _RecolorSection extends StatefulWidget {
   final GameState game;
-  final Map<String, int> sparks;
-  final void Function(PetSkin) onBuy;
+  final int spark;
+  final ValueChanged<PetVariant> onRecolor;
 
-  const _SkinsSection({
+  const _RecolorSection({
     required this.game,
-    required this.sparks,
-    required this.onBuy,
+    required this.spark,
+    required this.onRecolor,
   });
 
   @override
+  State<_RecolorSection> createState() => _RecolorSectionState();
+}
+
+class _RecolorSectionState extends State<_RecolorSection> {
+  late PetVariant _shown = widget.game.pet!.variant;
+
+  @override
   Widget build(BuildContext context) {
-    final pet = game.pet!;
+    final pet = widget.game.pet!;
+    final current = _shown == pet.variant;
+    final afford = widget.game.balance >= recolorPrice;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          '✨ Образы',
+          '🎨 Окраска питомца',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 236,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: skinsFor(pet.type).length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              final skin = skinsFor(pet.type)[i];
-              final owned = game.ownedSkins.contains(skin.id);
-              final worn = game.skinId == skin.id;
-              return _SkinCard(
-                skin: skin,
-                pet: pet.type,
-                variant: pet.variant,
+        SparkOnAction(
+          trigger: widget.spark,
+          spread: 70,
+          child: LoopCarousel(
+            itemCount: PetVariant.values.length,
+            initialIndex: pet.variant.index,
+            height: 230,
+            onChanged: (i) => setState(() => _shown = PetVariant.values[i]),
+            itemBuilder: (context, i, selected) {
+              final variant = PetVariant.values[i];
+              return PetPosterCard(
+                type: pet.type,
+                variant: variant,
                 level: pet.level,
-                owned: owned,
-                worn: worn,
-                spark: sparks[skin.id] ?? 0,
-                onPressed: worn
-                    ? () => game.equipSkin(null)
-                    : owned
-                        ? () => game.equipSkin(skin.id)
-                        : game.balance >= skin.price
-                            ? () => onBuy(skin)
-                            : null,
+                title: PetLook.of(pet.type, variant).label,
+                selected: variant == pet.variant,
+                subtitle: '🪙 $recolorPrice',
               );
             },
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _SkinCard extends StatelessWidget {
-  final PetSkin skin;
-  final PetType pet;
-  final PetVariant variant;
-  final int level;
-  final bool owned;
-  final bool worn;
-  final int spark;
-  final VoidCallback? onPressed;
-
-  const _SkinCard({
-    required this.skin,
-    required this.pet,
-    required this.variant,
-    required this.level,
-    required this.owned,
-    required this.worn,
-    required this.spark,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final String label;
-    if (worn) {
-      label = 'Снять';
-    } else if (owned) {
-      label = 'Надеть';
-    } else {
-      label = '🪙 ${skin.price}';
-    }
-    return Container(
-      width: 150,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: KidsTheme.pill(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: worn ? skin.bgEnd : scheme.outline,
-          width: worn ? 3 : 1,
+        const SizedBox(height: 4),
+        KidsButton(
+          text: current
+              ? 'Сейчас такой'
+              : 'Перекрасить за $recolorPrice 🪙',
+          icon: current ? null : Icons.brush_outlined,
+          onPressed: current || !afford ? null : () => widget.onRecolor(_shown),
         ),
-      ),
-      child: Column(
-        children: [
-          SparkOnAction(
-            trigger: spark,
-            spread: 40,
-            child: PetModel(
-              type: pet,
-              variant: variant,
-              skin: skin,
-              level: level,
-              size: 100,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            skin.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            child: worn
-                ? OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                    ),
-                    onPressed: onPressed,
-                    child: Text(label),
-                  )
-                : ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(48, 48),
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    onPressed: onPressed,
-                    child: Text(label),
-                  ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }

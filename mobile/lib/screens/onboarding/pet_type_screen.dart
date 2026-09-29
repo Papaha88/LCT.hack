@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../models/pet.dart';
-import '../../theme/kids_theme.dart';
-import '../../widgets/action_spark.dart';
-import '../../widgets/finny_avatar.dart';
 import '../../widgets/finny_bubble.dart';
 import '../../widgets/kids_button.dart';
+import '../../widgets/loop_carousel.dart';
+import '../../widgets/pet_poster_card.dart';
 
-/// Шаг 4а. Выбор вида питомца: кошечка / собачка / пингвинчик.
+/// Шаг 4а. Выбор вида питомца: карусель по кругу с постерами моделей.
+/// Кто в центре — тот и выбран.
 class PetTypeScreen extends StatefulWidget {
   final String nickname;
   final PetType? selected;
@@ -27,13 +27,7 @@ class PetTypeScreen extends StatefulWidget {
 }
 
 class _PetTypeScreenState extends State<PetTypeScreen> {
-  PetType? _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = widget.selected;
-  }
+  late PetType _selected = widget.selected ?? PetType.cat;
 
   @override
   Widget build(BuildContext context) {
@@ -41,130 +35,51 @@ class _PetTypeScreenState extends State<PetTypeScreen> {
         ? 'Привет!'
         : 'Рад знакомству, ${widget.nickname}!';
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(0, 24, 0, 24),
       child: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  const FinnyAvatar(size: 84, waving: false),
-                  const SizedBox(height: 12),
-                  FinnyBubble(
-                    text: '$hello\n'
-                        'Теперь давай создадим твоего питомца. Ты сможешь '
-                        'выбрать, как он будет выглядеть, и дать ему имя.',
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: FinnyBubble(
+                      text: '$hello Кто будет твоим питомцем? '
+                          'Листай вправо и влево!',
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: PetType.values
-                        .map(
-                          (type) => Expanded(
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
-                              child: _TypeCard(
-                                type: type,
-                                selected: _selected == type,
-                                onTap: () =>
-                                    setState(() => _selected = type),
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                  LoopCarousel(
+                    itemCount: PetType.values.length,
+                    initialIndex: _selected.index,
+                    height: 300,
+                    onChanged: (i) =>
+                        setState(() => _selected = PetType.values[i]),
+                    itemBuilder: (context, i, selected) => PetPosterCard(
+                      type: PetType.values[i],
+                      variant: PetVariant.v1,
+                      title: PetType.values[i].title,
+                      selected: selected,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          KidsButton(
-            text: 'Далее',
-            icon: Icons.arrow_forward,
-            onPressed:
-                _selected == null ? null : () => widget.onNext(_selected!),
-          ),
-          BackLink(onPressed: widget.onBack),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypeCard extends StatelessWidget {
-  final PetType type;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TypeCard({
-    required this.type,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Stack(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
-            decoration: BoxDecoration(
-              color: KidsTheme.pill(context),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: selected ? scheme.primary : scheme.outline,
-                width: 3,
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Огонёк вспыхивает, когда вид выбрали.
-                SparkOnAction(
-                  trigger: selected ? 1 : 0,
-                  spread: 32,
-                  child: Text(type.emoji,
-                      style: const TextStyle(fontSize: 46)),
+                KidsButton(
+                  text: 'Выбираю: ${_selected.title}',
+                  icon: Icons.arrow_forward,
+                  onPressed: () => widget.onNext(_selected),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  type.title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                // Состояние показано текстом, а не только цветом (требование ТЗ).
-                Text(
-                  selected ? 'Выбрано' : 'Выбрать',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight:
-                        selected ? FontWeight.bold : FontWeight.normal,
-                    color:
-                        selected ? scheme.primary : scheme.onSurfaceVariant,
-                  ),
-                ),
+                BackLink(onPressed: widget.onBack),
               ],
             ),
           ),
-          // Галочка иконкой, а не символом «✓»: его нет в Roboto, и вместо
-          // галочки получался пустой квадрат. Material-иконки вшиты в APK.
-          if (selected)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Icon(Icons.check_circle,
-                  size: 22, color: scheme.primary),
-            ),
         ],
       ),
     );

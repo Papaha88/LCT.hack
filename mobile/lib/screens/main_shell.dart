@@ -22,22 +22,28 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _pages = [
-    HomeScreen(),
-    PlanScreen(),
-    QuestsScreen(),
-    ShopScreen(),
-    BankScreen(),
-  ];
+  /// Вкладки. Задания знают, открыты ли они: помощник в них выезжает
+  /// только при настоящем заходе на вкладку.
+  List<Widget> get _pages => [
+        const HomeScreen(),
+        const PlanScreen(),
+        QuestsScreen(active: _index == _questsTab),
+        const ShopScreen(),
+        const BankScreen(),
+      ];
 
   /// Заголовок шапки = название текущей страницы.
   static const _titles = [
     'Мой питомец',
     'План бюджета',
     'Дороги заданий',
-    'Магазинчик',
+    'Лавка',
     'Копилка',
   ];
+
+  /// Номера вкладок в [_pages].
+  static const int _questsTab = 2;
+  static const int _shopTab = 3;
 
   void _openSettings() {
     Navigator.of(context).push(
@@ -52,6 +58,8 @@ class _MainShellState extends State<MainShell> {
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
+          // В магазине баланс висит в шапке — его видно при прокрутке.
+          if (_index == _shopTab) _BalanceChip(balance: game.balance),
           const StreakFlame(),
           IconButton(
             tooltip: 'Сменить тему',
@@ -95,6 +103,37 @@ class _MainShellState extends State<MainShell> {
             label: 'Банк',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Баланс в шапке магазина.
+class _BalanceChip extends StatelessWidget {
+  final int balance;
+
+  const _BalanceChip({required this.balance});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'В кошельке $balance монет',
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          '🪙 $balance',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
       ),
     );
   }

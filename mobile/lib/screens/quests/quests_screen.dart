@@ -7,6 +7,8 @@ import '../../data/lessons_data.dart';
 import '../../models/game_state.dart';
 import '../../models/player_profile.dart';
 import '../../theme/kids_theme.dart';
+import '../../widgets/action_spark.dart';
+import '../../widgets/finny_avatar.dart';
 import '../level_up/level_up_screen.dart';
 import 'lesson_screen.dart';
 
@@ -16,7 +18,11 @@ import 'lesson_screen.dart';
 /// по классам. Класс по возрасту подсвечен «Твой уровень», но открыты
 /// все задания: можно идти вперёд или вернуться назад.
 class QuestsScreen extends StatefulWidget {
-  const QuestsScreen({super.key});
+  /// Вкладка сейчас открыта. Вкладки живут в IndexedStack и строятся
+  /// сразу все — помощник должен выехать, только когда ребёнок пришёл сюда.
+  final bool active;
+
+  const QuestsScreen({super.key, this.active = true});
 
   @override
   State<QuestsScreen> createState() => _QuestsScreenState();
@@ -24,6 +30,60 @@ class QuestsScreen extends StatefulWidget {
 
 class _QuestsScreenState extends State<QuestsScreen> {
   LessonTrack _track = LessonTrack.finance;
+
+  final ScrollController _scroll = ScrollController();
+
+  /// Раздел «Твой уровень» — к нему ведёт помощник.
+  final GlobalKey _recommendedKey = GlobalKey();
+
+  /// Помощник на экране (выезжает при первом заходе).
+  bool _guide = false;
+
+  /// Вспышка на разделе своего уровня, когда помощник туда привёл.
+  int _flash = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowGuide());
+  }
+
+  @override
+  void didUpdateWidget(covariant QuestsScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) _maybeShowGuide();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _maybeShowGuide() {
+    if (!mounted || !widget.active || _guide) return;
+    if (GameStateScope.read(context).questsGuideSeen) return;
+    setState(() => _guide = true);
+  }
+
+  void _closeGuide() {
+    GameStateScope.read(context).markQuestsGuideSeen();
+    setState(() => _guide = false);
+  }
+
+  /// «Покажи!» — едем к своему классу и подсвечиваем его.
+  Future<void> _followGuide() async {
+    _closeGuide();
+    final target = _recommendedKey.currentContext;
+    if (target == null) return;
+    await Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeInOut,
+      alignment: 0.05,
+    );
+    if (mounted) setState(() => _flash++);
+  }
 
   Future<void> _open(Lesson lesson) async {
     await openLesson(context, lesson);
@@ -38,62 +98,182 @@ class _QuestsScreenState extends State<QuestsScreen> {
         .where((l) => game.lessonsRetry.contains(l.id))
         .toList();
 
-    return ListView(
+    // Колонка, а не ленивый ListView: помощник прокручивает к разделу,
+    // и он должен быть построен. Заданий немного — это недорого.
+    final road = SingleChildScrollView(
+      controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      children: [
-        Row(
-          children: LessonTrack.values
-              .map(
-                (t) => Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: t == LessonTrack.values.first ? 6 : 0,
-                      left: t == LessonTrack.values.first ? 0 : 6,
-                    ),
-                    child: _TrackTab(
-                      track: t,
-                      solved: game.solvedOn(t),
-                      total: lessonsOf(t).length,
-                      selected: _track == t,
-                      onTap: () => setState(() => _track = t),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: LessonTrack.values
+                .map(
+                  (t) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        right: t == LessonTrack.values.first ? 6 : 0,
+                        left: t == LessonTrack.values.first ? 0 : 6,
+                      ),
+                      child: _TrackTab(
+                        track: t,
+                        solved: game.solvedOn(t),
+                        total: lessonsOf(t).length,
+                        selected: _track == t,
+                        onTap: () => setState(() => _track = t),
+                      ),
                     ),
                   ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 12),
+          _AdviceCard(
+            text: age == null
+                ? 'Начни с 1 класса. Открыто всё!'
+                : 'Для ${PlayerProfile.labelFor(age)} — $recommended класс ⭐. '
+                    'Открыто всё!',
+          ),
+          if (retry.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _RetryCard(lessons: retry, onOpen: _open),
+          ],
+          const SizedBox(height: 8),
+          ...gradesOf(_track).map(
+            (grade) => KeyedSubtree(
+              key: grade == recommended ? _recommendedKey : null,
+              child: SparkOnAction(
+                trigger: grade == recommended ? _flash : 0,
+                spread: 80,
+                child: _GradeSection(
+                  key: ValueKey('${_track.name}_$grade'),
+                  track: _track,
+                  grade: grade,
+                  recommended: grade == recommended,
+                  game: game,
+                  onOpen: _open,
                 ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 12),
-        _AdviceCard(
-          text: age == null
-              ? 'Начни с 1 класса. Открыто всё!'
-              : 'Для ${PlayerProfile.labelFor(age)} — $recommended класс ⭐. '
-                  'Открыто всё!',
-        ),
-        if (retry.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _RetryCard(lessons: retry, onOpen: _open),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              game.solvedOn(_track) == lessonsOf(_track).length
+                  ? '🏆 Дорога пройдена! Ты настоящий мастер!'
+                  : '🏁 Финиш дороги',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
-        const SizedBox(height: 8),
-        ...gradesOf(_track).map(
-          (grade) => _GradeSection(
-            key: ValueKey('${_track.name}_$grade'),
-            track: _track,
-            grade: grade,
-            recommended: grade == recommended,
-            game: game,
-            onOpen: _open,
+      ),
+    );
+
+    return Stack(
+      children: [
+        road,
+        if (_guide)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 12,
+            child: _GuideCard(
+              text: age == null
+                  ? 'Привет! Начни с 1 класса — а дальше выбирай сам.'
+                  : 'Привет! Тебе ${PlayerProfile.labelFor(age)}. '
+                      'Твой уровень — $recommended класс. Пойдём туда?',
+              onGo: _followGuide,
+              onClose: _closeGuide,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: Text(
-            game.solvedOn(_track) == lessonsOf(_track).length
-                ? '🏆 Дорога пройдена! Ты настоящий мастер!'
-                : '🏁 Финиш дороги',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
       ],
+    );
+  }
+}
+
+/// Помощник Финни: выезжает снизу при первом заходе в задания
+/// и ведёт к классу по возрасту.
+class _GuideCard extends StatelessWidget {
+  final String text;
+  final VoidCallback onGo;
+  final VoidCallback onClose;
+
+  const _GuideCard({
+    required this.text,
+    required this.onGo,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1, end: 0),
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutBack,
+      builder: (context, t, child) => Transform.translate(
+        offset: Offset(0, t * 260),
+        child: child,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: KidsTheme.pill(context),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Theme.of(context).colorScheme.primary),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const FinnyAvatar(size: 56),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      text,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: onClose,
+                      child: const Text('Сам посмотрю'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                      ),
+                      onPressed: onGo,
+                      child: const Text('Покажи!'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -252,8 +432,7 @@ class _GradeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lessons =
-        lessonsOf(track).where((l) => l.grade == grade).toList();
+    final lessons = lessonsOf(track).where((l) => l.grade == grade).toList();
     final solved = lessons.where((l) => game.lessonsSolved.contains(l.id));
     final next = game.nextLesson;
     final scheme = Theme.of(context).colorScheme;
@@ -313,8 +492,8 @@ class _GradeSection extends StatelessWidget {
             final width = constraints.maxWidth;
             final centers = [
               for (var i = 0; i < lessons.length; i++)
-                Offset(width * _xFraction(i + grade),
-                    _step * i + _step / 2 + 4),
+                Offset(
+                    width * _xFraction(i + grade), _step * i + _step / 2 + 4),
             ];
             final done = [
               for (final l in lessons) game.lessonsSolved.contains(l.id),
@@ -542,10 +721,7 @@ class _RoadPainter extends CustomPainter {
       // Отрезок пройден, если решены оба кружка по его краям.
       final from = i - 1;
       final to = i;
-      final passed = from >= 0 &&
-          to < done.length &&
-          done[from] &&
-          done[to];
+      final passed = from >= 0 && to < done.length && done[from] && done[to];
       road.color = passed ? color.withValues(alpha: 0.75) : base;
       canvas.drawPath(segment, road);
 

@@ -109,10 +109,9 @@ class _LevelUpScreenState extends State<LevelUpScreen>
         child: PetModel(
           type: widget.pet.type,
           variant: widget.pet.variant,
-          skin: GameStateScope.read(context).skin,
           level: widget.event.toLevel,
           size: 150,
-          reaction: 1,
+          emotion: PetEmotion.happy,
         ),
       ),
     );
