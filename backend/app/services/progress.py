@@ -83,47 +83,48 @@ def check_against_content(
     """Сверить ссылки снимка со справочниками сервера.
 
     Это предупреждения, а не ошибки: у приложения может быть более свежий
-    (или собственный офлайн-) контент, и отказ сохранить прогресс из-за
-    незнакомого id означал бы потерю прогресса — что ТЗ прямо запрещает.
+    контент, и отказ сохранить прогресс из-за незнакомого id означал бы
+    потерю прогресса — что ТЗ прямо запрещает.
     """
     warnings: list[ContentWarning] = []
     item_ids = {item.id for item in content.catalog.items}
     goal_ids = {goal.id for goal in content.goals.items}
-    quest_ids = {quest.id for quest in content.quests.items}
-    species_ids = {species.id for species in content.pets.species}
-    palette_ids = {palette.id for palette in content.pets.palettes}
-    stage_ids = {stage.id for stage in content.economy.pet.stages}
+    lesson_ids = {lesson.id for lesson in content.quests.items}
+    variants = {
+        species.id: {variant.id for variant in species.variants} for species in content.pets.species
+    }
+    skins = {skin.id: skin.species for skin in content.pets.skins}
 
     def warn(code: str, ref: str, message: str) -> None:
         warnings.append(ContentWarning(code=code, message=message, ref=ref))
 
-    if snapshot.goal and snapshot.goal.goal_id not in goal_ids:
+    pet = snapshot.pet
+    if pet.species_id not in variants:
+        warn("unknown_species", pet.species_id, "Неизвестный вид питомца")
+    elif pet.variant_id not in variants[pet.species_id]:
+        warn("unknown_variant", pet.variant_id, "У этого вида нет такой окраски")
+
+    if snapshot.goal.goal_id is not None and snapshot.goal.goal_id not in goal_ids:
         warn("unknown_goal", snapshot.goal.goal_id, "Цель отсутствует в справочнике сервера")
 
     for entry in snapshot.inventory:
         if entry.item_id not in item_ids:
-            warn("unknown_item", entry.item_id, "Позиция инвентаря отсутствует в каталоге")
+            warn("unknown_item", entry.item_id, "Предмет рюкзачка отсутствует в каталоге")
 
-    for purchase in snapshot.purchases:
-        if purchase.item_id not in item_ids:
-            warn("unknown_item", purchase.item_id, "Покупка ссылается на неизвестный товар")
+    for lesson_id in [*snapshot.lessons.solved, *snapshot.lessons.retry]:
+        if lesson_id not in lesson_ids:
+            warn("unknown_lesson", lesson_id, "Задание отсутствует в справочнике сервера")
 
-    for record in snapshot.quests:
-        if record.quest_id not in quest_ids:
-            warn("unknown_quest", record.quest_id, "Задание отсутствует в справочнике сервера")
+    for skin_id in snapshot.skins.owned:
+        if skin_id not in skins:
+            warn("unknown_skin", skin_id, "Образ отсутствует в справочнике сервера")
 
-    for course_id in snapshot.education.purchased_course_ids:
-        if course_id not in item_ids:
-            warn("unknown_course", course_id, "Курс отсутствует в каталоге")
+    equipped = snapshot.skins.equipped
+    if equipped in skins and skins[equipped] != pet.species_id:
+        # Приложение такой образ просто не показывает — питомец в обычной окраске.
+        warn("skin_species_mismatch", equipped, "Надетый образ предназначен другому виду")
 
-    if snapshot.pet.species_id not in species_ids:
-        warn("unknown_species", snapshot.pet.species_id, "Неизвестный вид питомца")
-    if snapshot.pet.palette_id not in palette_ids:
-        warn("unknown_palette", snapshot.pet.palette_id, "Неизвестная окраска питомца")
-    if snapshot.pet.stage_id not in stage_ids:
-        warn("unknown_stage", snapshot.pet.stage_id, "Неизвестная стадия развития питомца")
-
-    # Дубликаты ref схлопываем: одинаковый товар мог встретиться много раз.
+    # Дубликаты ref схлопываем: один и тот же id мог встретиться несколько раз.
     unique: dict[tuple[str, str], ContentWarning] = {}
     for warning in warnings:
         unique.setdefault((warning.code, warning.ref), warning)

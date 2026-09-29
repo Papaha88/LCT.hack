@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Финни — API справочников и прогресса",
-    "description": "\nБэкенд игры «Питомец Финни».\n\n**Сервер не обязателен по ТЗ** — игровой цикл работает офлайн на локальном\nпрофиле. API нужен для двух вещей:\n\n1. **Справочники** (`/api/v1/content/*`) — каталог покупок, цели, задания,\n   термины и правила экономики. Контент лежит в JSON отдельно от кода, поэтому\n   новое задание или товар добавляются без пересборки приложения.\n   Разделы кэшируются по ETag: клиент присылает `If-None-Match` и получает 304.\n2. **Прогресс** (`/api/v1/progress/*`) — выгрузка и восстановление снимка\n   локального профиля (переустановка, смена устройства, проверка экспертом).\n\nПерсональные данные не собираются: профиль адресуется UUID, который\nгенерирует само приложение.\n",
-    "version": "1.0.0"
+    "description": "\nБэкенд игры «Питомец Финни».\n\n**Приложение работает без сервера.** Игра полностью офлайн: контент зашит в\nкод приложения, прогресс хранится на устройстве. Этот сервис необязательный —\nон нужен для двух вещей:\n\n1. **Справочники** (`/api/v1/content/*`) — тот же контент, что в приложении:\n   магазин, цели копилки, задания дорог «Математика» и «Финансы», питомцы и\n   правила экономики. JSON собирается из Dart-кода скриптом\n   `scripts/sync_from_mobile.py`. Разделы кэшируются по ETag\n   (`If-None-Match` → 304).\n2. **Прогресс** (`/api/v1/progress/*`) — резервная копия снимка локального\n   профиля (переустановка, смена устройства, проверка экспертом).\n\nПерсональные данные не собираются: профиль адресуется UUID, который\nгенерирует само приложение.\n",
+    "version": "2.0.0"
   },
   "paths": {
     "/api/v1/content/manifest": {
@@ -62,7 +62,7 @@
           "Справочники"
         ],
         "summary": "Каталог покупок",
-        "description": "Товары с ценой, категорией и влиянием на питомца (ТЗ 2.5.6).",
+        "description": "Товары магазина приложения: цена, отдел, влияние на питомца (ТЗ 2.5.6) и правило «скидки дня».",
         "operationId": "get_catalog_api_v1_content_catalog_get",
         "parameters": [
           {
@@ -74,8 +74,7 @@
                 {
                   "enum": [
                     "mandatory",
-                    "optional",
-                    "education"
+                    "optional"
                   ],
                   "type": "string"
                 },
@@ -83,10 +82,10 @@
                   "type": "null"
                 }
               ],
-              "description": "mandatory | optional | education",
+              "description": "mandatory («надо») | optional",
               "title": "Kind"
             },
-            "description": "mandatory | optional | education"
+            "description": "mandatory («надо») | optional"
           },
           {
             "name": "category",
@@ -101,10 +100,10 @@
                   "type": "null"
                 }
               ],
-              "description": "food, hygiene, toys…",
+              "description": "food, hygiene, health, toys…",
               "title": "Category"
             },
-            "description": "food, hygiene, toys…"
+            "description": "food, hygiene, health, toys…"
           }
         ],
         "responses": {
@@ -148,10 +147,10 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Идентификатор товара, например food_apple",
+              "description": "Идентификатор товара, например apple",
               "title": "Item Id"
             },
-            "description": "Идентификатор товара, например food_apple"
+            "description": "Идентификатор товара, например apple"
           }
         ],
         "responses": {
@@ -183,8 +182,8 @@
         "tags": [
           "Справочники"
         ],
-        "summary": "Цели накопления",
-        "description": "Цель с ценой, ориентиром срока и наградой (ТЗ 2.5.7).",
+        "summary": "Цели копилки",
+        "description": "Готовые цели и правила своей цели: границы суммы, картинки (ТЗ 2.5.7).",
         "operationId": "get_goals_api_v1_content_goals_get",
         "responses": {
           "200": {
@@ -250,12 +249,12 @@
         "tags": [
           "Справочники"
         ],
-        "summary": "Задания по финансовой грамотности",
-        "description": "Минимум 6 заданий по 3 темам (ТЗ 2.5.8). Типы: `choice` — выбор с последствиями, `allocation` — распределение бюджета, `ordering` — порядок шагов. У каждого варианта есть объяснение — оно показывается независимо от правильности ответа.",
+        "summary": "Задания: дороги «Математика» и «Финансы»",
+        "description": "Задания сгруппированы по дорогам и классам 1–4 (ТЗ 2.5.8). У каждого — ситуация, четыре варианта ответа кнопками, разбор и справка. Награда — монеты и опыт за первое верное решение; ошибка ничего не отнимает, а превращает задание в задачу «Повтори» (ТЗ 2.5.9).",
         "operationId": "get_quests_api_v1_content_quests_get",
         "parameters": [
           {
-            "name": "topic",
+            "name": "track",
             "in": "query",
             "required": false,
             "schema": {
@@ -267,28 +266,30 @@
                   "type": "null"
                 }
               ],
-              "description": "budget_planning, savings, payments",
-              "title": "Topic"
+              "description": "math | finance",
+              "title": "Track"
             },
-            "description": "budget_planning, savings, payments"
+            "description": "math | finance"
           },
           {
-            "name": "tag",
+            "name": "grade",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "integer",
+                  "maximum": 4,
+                  "minimum": 1
                 },
                 {
                   "type": "null"
                 }
               ],
-              "description": "Например, recovery — задание-исправление",
-              "title": "Tag"
+              "description": "Класс 1–4",
+              "title": "Grade"
             },
-            "description": "Например, recovery — задание-исправление"
+            "description": "Класс 1–4"
           }
         ],
         "responses": {
@@ -342,26 +343,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/ChoiceQuest"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AllocationQuest"
-                    },
-                    {
-                      "$ref": "#/components/schemas/OrderingQuest"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "type",
-                    "mapping": {
-                      "choice": "#/components/schemas/ChoiceQuest",
-                      "allocation": "#/components/schemas/AllocationQuest",
-                      "ordering": "#/components/schemas/OrderingQuest"
-                    }
-                  },
-                  "title": "Response Get Quest Api V1 Content Quests  Quest Id  Get"
+                  "$ref": "#/components/schemas/Lesson"
                 }
               }
             }
@@ -401,8 +383,10 @@
                   "type": "null"
                 }
               ],
+              "description": "finance_1 | finance_2 | finance_3",
               "title": "Topic"
-            }
+            },
+            "description": "finance_1 | finance_2 | finance_3"
           }
         ],
         "responses": {
@@ -437,8 +421,8 @@
         "tags": [
           "Справочники"
         ],
-        "summary": "Внешний вид питомца",
-        "description": "Виды, окраски и готовые имена для онбординга: 3 × 3 = 9 комбинаций (ТЗ 2.6).",
+        "summary": "Питомец: виды, окраски, образы, этапы, настроение",
+        "description": "Три вида × три окраски = 9 комбинаций (ТЗ 2.6), покупные образы, этапы взросления по уровню, правила настроения и готовые имена для кубика.",
         "operationId": "get_pets_api_v1_content_pets_get",
         "responses": {
           "200": {
@@ -463,7 +447,7 @@
           "Справочники"
         ],
         "summary": "Правила игровой экономики",
-        "description": "Доход за период, шаг планирования, ставка вклада, пороги стадий питомца и обязательные правила. Вынесены в контент, чтобы баланс игры менялся без правок кода приложения (ТЗ 2.5.14).",
+        "description": "Константы приложения: старт, доход по уровню питомца, бонус за вход, опыт и уровни, расход показателей за день, копилка, огонёк, обязательные правила. Блок `from_documents` — механики из документов команды, которых в приложении пока нет (вклад, курсы, украшения).",
         "operationId": "get_economy_api_v1_content_economy_get",
         "responses": {
           "200": {
@@ -521,7 +505,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ProgressSnapshot-Input"
+                "$ref": "#/components/schemas/ProgressSnapshot"
               }
             }
           }
@@ -696,380 +680,30 @@
           }
         }
       }
-    },
-    "/pet/{user_id}": {
-      "get": {
-        "tags": [
-          "Служебное"
-        ],
-        "summary": "Устаревшая заглушка",
-        "operationId": "get_pet_state_pet__user_id__get",
-        "deprecated": true,
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "User Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/app__main__PetState"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
     "schemas": {
-      "AllocationDirection": {
+      "AgeGrade": {
         "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
+          "age": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Age"
           },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "emoji": {
-            "type": "string",
-            "title": "Emoji"
-          },
-          "min": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Min"
-          },
-          "max": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max"
-          },
-          "hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hint"
-          },
-          "message_if_below": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message If Below"
-          },
-          "message_if_above": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Message If Above"
+          "grade": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Grade"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "id",
-          "title",
-          "emoji"
+          "age",
+          "grade"
         ],
-        "title": "AllocationDirection"
-      },
-      "AllocationQuest": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "topic": {
-            "type": "string",
-            "title": "Topic"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "situation": {
-            "type": "string",
-            "title": "Situation"
-          },
-          "finni_intro": {
-            "type": "string",
-            "title": "Finni Intro"
-          },
-          "reward": {
-            "$ref": "#/components/schemas/QuestReward"
-          },
-          "difficulty": {
-            "type": "integer",
-            "maximum": 3.0,
-            "minimum": 1.0,
-            "title": "Difficulty"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags"
-          },
-          "wrap_up": {
-            "type": "string",
-            "title": "Wrap Up",
-            "description": "Короткий вывод после задания, независимо от ответа"
-          },
-          "type": {
-            "type": "string",
-            "const": "allocation",
-            "title": "Type"
-          },
-          "allocation": {
-            "$ref": "#/components/schemas/AllocationTask"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "topic",
-          "title",
-          "situation",
-          "finni_intro",
-          "reward",
-          "difficulty",
-          "wrap_up",
-          "type",
-          "allocation"
-        ],
-        "title": "AllocationQuest"
-      },
-      "AllocationTask": {
-        "properties": {
-          "available": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Available"
-          },
-          "step": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Step"
-          },
-          "must_use_all": {
-            "type": "boolean",
-            "title": "Must Use All",
-            "default": false
-          },
-          "directions": {
-            "items": {
-              "$ref": "#/components/schemas/AllocationDirection"
-            },
-            "type": "array",
-            "minItems": 3,
-            "title": "Directions"
-          },
-          "success_explanation": {
-            "type": "string",
-            "title": "Success Explanation"
-          },
-          "partial_explanation": {
-            "type": "string",
-            "title": "Partial Explanation"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "available",
-          "step",
-          "directions",
-          "success_explanation",
-          "partial_explanation"
-        ],
-        "title": "AllocationTask"
-      },
-      "BudgetDirection": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "emoji": {
-            "type": "string",
-            "title": "Emoji"
-          },
-          "categories": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Categories"
-          },
-          "explain": {
-            "type": "string",
-            "title": "Explain"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "title",
-          "emoji",
-          "categories",
-          "explain"
-        ],
-        "title": "BudgetDirection"
-      },
-      "BudgetPlanState": {
-        "properties": {
-          "period": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Period"
-          },
-          "available": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Available"
-          },
-          "mandatory": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Mandatory"
-          },
-          "optional": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Optional",
-            "default": 0
-          },
-          "education": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Education",
-            "default": 0
-          },
-          "savings": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Savings",
-            "default": 0
-          },
-          "confirmed": {
-            "type": "boolean",
-            "title": "Confirmed",
-            "default": false
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "period",
-          "available",
-          "mandatory"
-        ],
-        "title": "BudgetPlanState",
-        "description": "План периода. После подтверждения не редактируется (ТЗ 2.5.5),\nпоэтому `confirmed` едет в снимке вместе с суммами."
-      },
-      "BudgetRules": {
-        "properties": {
-          "step": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Step"
-          },
-          "alt_step": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Alt Step"
-          },
-          "allow_unallocated": {
-            "type": "boolean",
-            "title": "Allow Unallocated"
-          },
-          "unallocated_hint": {
-            "type": "string",
-            "title": "Unallocated Hint"
-          },
-          "editable_until_confirmed": {
-            "type": "boolean",
-            "title": "Editable Until Confirmed"
-          },
-          "directions": {
-            "items": {
-              "$ref": "#/components/schemas/BudgetDirection"
-            },
-            "type": "array",
-            "minItems": 3,
-            "title": "Directions",
-            "description": "ТЗ 2.5.5: минимум 3 направления"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "step",
-          "alt_step",
-          "allow_unallocated",
-          "unallocated_hint",
-          "editable_until_confirmed",
-          "directions"
-        ],
-        "title": "BudgetRules"
+        "title": "AgeGrade"
       },
       "CatalogCategory": {
         "properties": {
@@ -1089,10 +723,10 @@
             "type": "string",
             "enum": [
               "mandatory",
-              "optional",
-              "education"
+              "optional"
             ],
-            "title": "Kind"
+            "title": "Kind",
+            "description": "mandatory — «надо», optional — «хочу»"
           }
         },
         "additionalProperties": false,
@@ -1116,6 +750,18 @@
             "format": "date",
             "title": "Updated At"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Откуда в приложении взят контент"
+          },
           "categories": {
             "items": {
               "$ref": "#/components/schemas/CatalogCategory"
@@ -1130,6 +776,9 @@
             },
             "type": "array",
             "title": "Items"
+          },
+          "deal_of_day": {
+            "$ref": "#/components/schemas/DealOfDay"
           }
         },
         "additionalProperties": false,
@@ -1138,7 +787,8 @@
           "version",
           "updated_at",
           "categories",
-          "items"
+          "items",
+          "deal_of_day"
         ],
         "title": "CatalogFile"
       },
@@ -1162,49 +812,28 @@
             "type": "string",
             "enum": [
               "mandatory",
-              "optional",
-              "education"
+              "optional"
             ],
             "title": "Kind"
           },
           "price": {
             "type": "integer",
-            "minimum": 0.0,
+            "minimum": 1.0,
             "title": "Price"
           },
           "emoji": {
             "type": "string",
             "title": "Emoji"
           },
-          "consumable": {
-            "type": "boolean",
-            "title": "Consumable"
-          },
           "effects": {
-            "$ref": "#/components/schemas/StatEffects"
+            "$ref": "#/components/schemas/ItemEffects"
           },
-          "description": {
+          "effect_text": {
             "type": "string",
-            "title": "Description"
+            "title": "Effect Text",
+            "description": "Реплика после использования предмета"
           },
-          "finni_hint": {
-            "type": "string",
-            "title": "Finni Hint",
-            "description": "Реплика Финни после покупки"
-          },
-          "purchase_limit": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Purchase Limit"
-          },
-          "slot": {
+          "badge": {
             "anyOf": [
               {
                 "type": "string"
@@ -1213,41 +842,8 @@
                 "type": "null"
               }
             ],
-            "title": "Slot",
-            "description": "Слот на главном экране (миска, лежанка…)"
-          },
-          "unlock": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CatalogUnlock"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "resale_rate": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 1.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resale Rate"
-          },
-          "education": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/EducationMeta"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "title": "Badge",
+            "description": "Ярлык на карточке: «Хит», «Новинка»…"
           }
         },
         "additionalProperties": false,
@@ -1259,160 +855,10 @@
           "kind",
           "price",
           "emoji",
-          "consumable",
-          "description",
-          "finni_hint"
+          "effects",
+          "effect_text"
         ],
         "title": "CatalogItem"
-      },
-      "CatalogUnlock": {
-        "properties": {
-          "pet_stage": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pet Stage"
-          },
-          "education_level": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Education Level"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "CatalogUnlock",
-        "description": "Условие, при котором позиция появляется в магазине."
-      },
-      "ChoiceOption": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "is_correct": {
-            "type": "boolean",
-            "title": "Is Correct"
-          },
-          "explanation": {
-            "type": "string",
-            "title": "Explanation",
-            "description": "Показывается при любом ответе (ТЗ 2.5.8)"
-          },
-          "effects": {
-            "$ref": "#/components/schemas/QuestEffects"
-          },
-          "recovery_hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Recovery Hint",
-            "description": "Путь восстановления после неудачного выбора (ТЗ 2.5.9)"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "title",
-          "is_correct",
-          "explanation"
-        ],
-        "title": "ChoiceOption"
-      },
-      "ChoiceQuest": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "topic": {
-            "type": "string",
-            "title": "Topic"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "situation": {
-            "type": "string",
-            "title": "Situation"
-          },
-          "finni_intro": {
-            "type": "string",
-            "title": "Finni Intro"
-          },
-          "reward": {
-            "$ref": "#/components/schemas/QuestReward"
-          },
-          "difficulty": {
-            "type": "integer",
-            "maximum": 3.0,
-            "minimum": 1.0,
-            "title": "Difficulty"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags"
-          },
-          "wrap_up": {
-            "type": "string",
-            "title": "Wrap Up",
-            "description": "Короткий вывод после задания, независимо от ответа"
-          },
-          "type": {
-            "type": "string",
-            "const": "choice",
-            "title": "Type"
-          },
-          "options": {
-            "items": {
-              "$ref": "#/components/schemas/ChoiceOption"
-            },
-            "type": "array",
-            "minItems": 2,
-            "title": "Options"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "topic",
-          "title",
-          "situation",
-          "finni_intro",
-          "reward",
-          "difficulty",
-          "wrap_up",
-          "type",
-          "options"
-        ],
-        "title": "ChoiceQuest"
       },
       "ContentBundle": {
         "properties": {
@@ -1450,7 +896,7 @@
           "economy"
         ],
         "title": "ContentBundle",
-        "description": "Весь контент одним ответом — для первого запуска и офлайн-кэша."
+        "description": "Весь контент одним ответом."
       },
       "ContentManifest": {
         "properties": {
@@ -1472,7 +918,7 @@
           "sections"
         ],
         "title": "ContentManifest",
-        "description": "Лёгкий ответ для проверки «не пора ли обновить локальный контент».\n\nМобильный хранит `content_version` рядом с закэшированным контентом и\nскачивает разделы, у которых изменился `etag`."
+        "description": "Лёгкий ответ для проверки «не пора ли обновить локальный контент»."
       },
       "ContentSectionInfo": {
         "properties": {
@@ -1536,7 +982,7 @@
           "ref"
         ],
         "title": "ContentWarning",
-        "description": "Мягкое предупреждение о ссылке на неизвестный серверу контент.\n\nНе ошибка: у приложения может быть более новый контент (или собственный\nофлайн-набор), и терять из-за этого прогресс нельзя."
+        "description": "Мягкое предупреждение о ссылке на неизвестный серверу контент.\n\nНе ошибка: у приложения может быть более новый контент, и терять из-за\nэтого прогресс нельзя."
       },
       "Currency": {
         "properties": {
@@ -1562,34 +1008,90 @@
         ],
         "title": "Currency"
       },
-      "DepositRules": {
+      "CustomGoalRules": {
         "properties": {
-          "annual_rate": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Annual Rate"
+          "allowed": {
+            "type": "boolean",
+            "title": "Allowed"
           },
-          "accrual": {
-            "type": "string",
-            "title": "Accrual"
-          },
-          "min_amount": {
+          "min_target": {
             "type": "integer",
-            "minimum": 0.0,
-            "title": "Min Amount"
+            "minimum": 1.0,
+            "title": "Min Target"
           },
-          "quick_amounts": {
+          "max_target": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Max Target"
+          },
+          "title_max_length": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Title Max Length"
+          },
+          "emoji_choices": {
             "items": {
-              "type": "integer"
+              "type": "string"
             },
             "type": "array",
             "minItems": 1,
-            "title": "Quick Amounts"
+            "title": "Emoji Choices"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "allowed",
+          "min_target",
+          "max_target",
+          "title_max_length",
+          "emoji_choices"
+        ],
+        "title": "CustomGoalRules"
+      },
+      "DailyBonus": {
+        "properties": {
+          "coins": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Coins"
           },
-          "withdraw_requires_confirmation": {
-            "type": "boolean",
-            "title": "Withdraw Requires Confirmation"
+          "once_per": {
+            "type": "string",
+            "const": "calendar_day",
+            "title": "Once Per"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "coins",
+          "once_per"
+        ],
+        "title": "DailyBonus"
+      },
+      "DealOfDay": {
+        "properties": {
+          "discount_percent": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Discount Percent"
+          },
+          "day_multiplier": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Day Multiplier"
+          },
+          "day_offset": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Day Offset"
+          },
+          "min_price": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Min Price"
           },
           "explain": {
             "type": "string",
@@ -1599,14 +1101,13 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "annual_rate",
-          "accrual",
-          "min_amount",
-          "quick_amounts",
-          "withdraw_requires_confirmation",
+          "discount_percent",
+          "day_multiplier",
+          "day_offset",
+          "min_price",
           "explain"
         ],
-        "title": "DepositRules"
+        "title": "DealOfDay"
       },
       "EconomyFile": {
         "properties": {
@@ -1619,23 +1120,60 @@
             "format": "date",
             "title": "Updated At"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Откуда в приложении взят контент"
+          },
           "currency": {
             "$ref": "#/components/schemas/Currency"
+          },
+          "start": {
+            "$ref": "#/components/schemas/StartState"
           },
           "income": {
             "$ref": "#/components/schemas/IncomeRules"
           },
+          "daily_bonus": {
+            "$ref": "#/components/schemas/DailyBonus"
+          },
+          "level_up": {
+            "$ref": "#/components/schemas/LevelUpRules"
+          },
+          "xp_rules": {
+            "items": {
+              "$ref": "#/components/schemas/XpRule"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Xp Rules"
+          },
+          "stats": {
+            "items": {
+              "$ref": "#/components/schemas/PetStat"
+            },
+            "type": "array",
+            "minItems": 3,
+            "title": "Stats"
+          },
           "period": {
             "$ref": "#/components/schemas/PeriodRules"
           },
-          "budget": {
-            "$ref": "#/components/schemas/BudgetRules"
+          "savings": {
+            "$ref": "#/components/schemas/SavingsRules"
           },
-          "deposit": {
-            "$ref": "#/components/schemas/DepositRules"
+          "streak": {
+            "$ref": "#/components/schemas/StreakRules"
           },
-          "pet": {
-            "$ref": "#/components/schemas/PetRules"
+          "player": {
+            "$ref": "#/components/schemas/PlayerRules"
           },
           "rules": {
             "$ref": "#/components/schemas/GameRules"
@@ -1646,6 +1184,12 @@
             },
             "type": "object",
             "title": "Messages"
+          },
+          "from_documents": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "From Documents",
+            "description": "Механики из документов команды, которых в приложении пока нет (вклад 20%, курсы, бонусы огонька, украшения). Справочно."
           }
         },
         "additionalProperties": false,
@@ -1654,71 +1198,20 @@
           "version",
           "updated_at",
           "currency",
+          "start",
           "income",
+          "daily_bonus",
+          "level_up",
+          "xp_rules",
+          "stats",
           "period",
-          "budget",
-          "deposit",
-          "pet",
+          "savings",
+          "streak",
+          "player",
           "rules",
           "messages"
         ],
         "title": "EconomyFile"
-      },
-      "EducationMeta": {
-        "properties": {
-          "level": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Level"
-          },
-          "requires_level": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Requires Level"
-          },
-          "income_multiplier": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Income Multiplier"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "level",
-          "requires_level",
-          "income_multiplier"
-        ],
-        "title": "EducationMeta",
-        "description": "Курс обучения: вложение в себя, увеличивающее будущий доход."
-      },
-      "EducationState": {
-        "properties": {
-          "level": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Level"
-          },
-          "base_income": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Base Income"
-          },
-          "purchased_course_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Purchased Course Ids"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "level",
-          "base_income"
-        ],
-        "title": "EducationState"
       },
       "GameRules": {
         "properties": {
@@ -1729,34 +1222,25 @@
           },
           "purchase_requires_confirmation": {
             "type": "boolean",
-            "const": true,
             "title": "Purchase Requires Confirmation"
           },
           "savings_withdraw_requires_confirmation": {
             "type": "boolean",
-            "const": true,
             "title": "Savings Withdraw Requires Confirmation"
-          },
-          "plan_editable_until_confirmed": {
-            "type": "boolean",
-            "const": true,
-            "title": "Plan Editable Until Confirmed"
           },
           "quests_reward_coins": {
             "type": "boolean",
             "const": true,
             "title": "Quests Reward Coins"
           },
-          "failure_creates_recovery_task": {
+          "mistake_creates_retry_task": {
             "type": "boolean",
-            "const": true,
-            "title": "Failure Creates Recovery Task"
+            "title": "Mistake Creates Retry Task"
           },
-          "resale_rate": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Resale Rate"
+          "mistake_loses_progress": {
+            "type": "boolean",
+            "const": false,
+            "title": "Mistake Loses Progress"
           }
         },
         "additionalProperties": false,
@@ -1765,13 +1249,11 @@
           "negative_balance_forbidden",
           "purchase_requires_confirmation",
           "savings_withdraw_requires_confirmation",
-          "plan_editable_until_confirmed",
           "quests_reward_coins",
-          "failure_creates_recovery_task",
-          "resale_rate"
+          "mistake_creates_retry_task",
+          "mistake_loses_progress"
         ],
-        "title": "GameRules",
-        "description": "Правила, которые по ТЗ нельзя нарушать, — поэтому только `true`."
+        "title": "GameRules"
       },
       "GlossaryFile": {
         "properties": {
@@ -1783,6 +1265,18 @@
             "type": "string",
             "format": "date",
             "title": "Updated At"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Откуда в приложении взят контент"
           },
           "items": {
             "items": {
@@ -1845,36 +1339,19 @@
             "type": "string",
             "title": "Title"
           },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
           "price": {
             "type": "integer",
             "minimum": 1.0,
             "title": "Price"
           },
-          "emoji": {
+          "hint": {
             "type": "string",
-            "title": "Emoji"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description"
-          },
-          "suggested_periods": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Suggested Periods",
-            "description": "Ориентир срока при регулярном пополнении"
-          },
-          "suggested_per_period": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Suggested Per Period"
-          },
-          "reward": {
-            "$ref": "#/components/schemas/GoalReward"
-          },
-          "finni_line": {
-            "type": "string",
-            "title": "Finni Line"
+            "title": "Hint",
+            "description": "Совет Финни: сколько откладывать и как долго"
           }
         },
         "additionalProperties": false,
@@ -1882,63 +1359,15 @@
         "required": [
           "id",
           "title",
-          "price",
           "emoji",
-          "description",
-          "suggested_periods",
-          "suggested_per_period",
-          "reward",
-          "finni_line"
+          "price",
+          "hint"
         ],
         "title": "Goal"
       },
-      "GoalProgressState": {
+      "GoalState": {
         "properties": {
           "goal_id": {
-            "type": "string",
-            "title": "Goal Id"
-          },
-          "accumulated": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Accumulated"
-          },
-          "selected_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Selected At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "goal_id",
-          "accumulated"
-        ],
-        "title": "GoalProgressState"
-      },
-      "GoalReward": {
-        "properties": {
-          "xp": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Xp",
-            "default": 0
-          },
-          "coins": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Coins",
-            "default": 0
-          },
-          "unlocks_item_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -1947,12 +1376,35 @@
                 "type": "null"
               }
             ],
-            "title": "Unlocks Item Id"
+            "title": "Goal Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Emoji"
+          },
+          "target": {
+            "type": "integer",
+            "maximum": 5000.0,
+            "minimum": 50.0,
+            "title": "Target"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "title": "GoalReward"
+        "required": [
+          "title",
+          "emoji",
+          "target"
+        ],
+        "title": "GoalState",
+        "description": "Цель копилки: готовая (`goal_id`) или своя (`goal_id: null`)."
       },
       "GoalsFile": {
         "properties": {
@@ -1965,12 +1417,31 @@
             "format": "date",
             "title": "Updated At"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Откуда в приложении взят контент"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/Goal"
             },
             "type": "array",
             "title": "Items"
+          },
+          "default_goal_id": {
+            "type": "string",
+            "title": "Default Goal Id"
+          },
+          "custom_goal": {
+            "$ref": "#/components/schemas/CustomGoalRules"
           }
         },
         "additionalProperties": false,
@@ -1978,7 +1449,9 @@
         "required": [
           "version",
           "updated_at",
-          "items"
+          "items",
+          "default_goal_id",
+          "custom_goal"
         ],
         "title": "GoalsFile"
       },
@@ -1995,27 +1468,55 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "IncomeRules": {
+      "IncomeLevel": {
         "properties": {
-          "base_income_per_period": {
+          "level": {
             "type": "integer",
             "minimum": 1.0,
-            "title": "Base Income Per Period"
+            "title": "Level"
           },
-          "daily_login_bonus": {
+          "income": {
             "type": "integer",
             "minimum": 0.0,
-            "title": "Daily Login Bonus"
+            "title": "Income"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "level",
+          "income"
+        ],
+        "title": "IncomeLevel"
+      },
+      "IncomeRules": {
+        "properties": {
+          "depends_on": {
+            "type": "string",
+            "const": "pet_level",
+            "title": "Depends On"
           },
-          "course_income_multiplier": {
+          "base": {
             "type": "integer",
-            "minimum": 1.0,
-            "title": "Course Income Multiplier"
+            "minimum": 0.0,
+            "title": "Base"
           },
-          "max_education_level": {
+          "per_level": {
             "type": "integer",
-            "minimum": 1.0,
-            "title": "Max Education Level"
+            "minimum": 0.0,
+            "title": "Per Level"
+          },
+          "explain": {
+            "type": "string",
+            "title": "Explain"
+          },
+          "table": {
+            "items": {
+              "$ref": "#/components/schemas/IncomeLevel"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Table"
           },
           "sources": {
             "items": {
@@ -2029,10 +1530,11 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "base_income_per_period",
-          "daily_login_bonus",
-          "course_income_multiplier",
-          "max_education_level",
+          "depends_on",
+          "base",
+          "per_level",
+          "explain",
+          "table",
           "sources"
         ],
         "title": "IncomeRules"
@@ -2082,6 +1584,319 @@
         ],
         "title": "InventoryEntry"
       },
+      "InventoryStart": {
+        "properties": {
+          "item_id": {
+            "type": "string",
+            "title": "Item Id"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Quantity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "title": "InventoryStart"
+      },
+      "ItemEffects": {
+        "properties": {
+          "satiety": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Satiety",
+            "description": "В приложении поле называется hunger",
+            "default": 0
+          },
+          "happiness": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Happiness",
+            "default": 0
+          },
+          "cleanliness": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Cleanliness",
+            "default": 0
+          },
+          "xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ItemEffects",
+        "description": "Прирост показателей питомца при использовании предмета из рюкзачка."
+      },
+      "Lesson": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "track": {
+            "type": "string",
+            "title": "Track"
+          },
+          "grade": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Grade",
+            "description": "Класс 1–4: сложность и награда"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Options",
+            "description": "Ответ выбирается кнопкой"
+          },
+          "correct_index": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Correct Index"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer",
+            "description": "Разбор — показывается после ответа"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "description": "Справка: правило, которое стоит запомнить"
+          },
+          "reward": {
+            "$ref": "#/components/schemas/LessonReward"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "track",
+          "grade",
+          "title",
+          "emoji",
+          "question",
+          "options",
+          "correct_index",
+          "answer",
+          "note",
+          "reward"
+        ],
+        "title": "Lesson"
+      },
+      "LessonReward": {
+        "properties": {
+          "coins": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Coins",
+            "description": "ТЗ 2.5.8: задания начисляют игровую валюту"
+          },
+          "xp": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "coins",
+          "xp"
+        ],
+        "title": "LessonReward"
+      },
+      "LessonRules": {
+        "properties": {
+          "options_per_lesson": {
+            "type": "integer",
+            "minimum": 2.0,
+            "title": "Options Per Lesson"
+          },
+          "reward_base": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reward Base"
+          },
+          "reward_per_grade": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reward Per Grade"
+          },
+          "xp_per_lesson": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Xp Per Lesson"
+          },
+          "reward_only_first_solve": {
+            "type": "boolean",
+            "title": "Reward Only First Solve"
+          },
+          "mistake_goes_to_retry": {
+            "type": "boolean",
+            "title": "Mistake Goes To Retry",
+            "description": "ТЗ 2.5.9: ошибка → задача «Повтори»"
+          },
+          "mistake_penalty": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Mistake Penalty"
+          },
+          "age_to_grade": {
+            "items": {
+              "$ref": "#/components/schemas/AgeGrade"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Age To Grade"
+          },
+          "age_to_grade_explain": {
+            "type": "string",
+            "title": "Age To Grade Explain"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "options_per_lesson",
+          "reward_base",
+          "reward_per_grade",
+          "xp_per_lesson",
+          "reward_only_first_solve",
+          "mistake_goes_to_retry",
+          "mistake_penalty",
+          "age_to_grade",
+          "age_to_grade_explain"
+        ],
+        "title": "LessonRules"
+      },
+      "LessonTrack": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9A-F]{6}$",
+            "title": "Color"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/TrackSection"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Sections"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "emoji",
+          "color",
+          "sections"
+        ],
+        "title": "LessonTrack"
+      },
+      "LessonsState": {
+        "properties": {
+          "solved": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Solved"
+          },
+          "retry": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Retry",
+            "description": "Задачи «Повтори»"
+          },
+          "mistakes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Mistakes",
+            "default": 0
+          },
+          "last_solved_day": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Last Solved Day",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "LessonsState",
+        "description": "Задания дорог. Ошибка не отнимает прогресс — задание уходит в «Повтори»."
+      },
+      "LevelUpRules": {
+        "properties": {
+          "xp_per_level": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Xp Per Level"
+          },
+          "coins_per_level": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Coins Per Level"
+          },
+          "restores_stats": {
+            "type": "boolean",
+            "title": "Restores Stats"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "xp_per_level",
+          "coins_per_level",
+          "restores_stats"
+        ],
+        "title": "LevelUpRules"
+      },
       "NicknameRules": {
         "properties": {
           "min_length": {
@@ -2098,6 +1913,10 @@
             "type": "boolean",
             "title": "Trim Spaces"
           },
+          "profanity_filter": {
+            "type": "boolean",
+            "title": "Profanity Filter"
+          },
           "hint": {
             "type": "string",
             "title": "Hint"
@@ -2109,217 +1928,42 @@
           "min_length",
           "max_length",
           "trim_spaces",
+          "profanity_filter",
           "hint"
         ],
         "title": "NicknameRules"
       },
-      "OrderingItem": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "emoji": {
-            "type": "string",
-            "title": "Emoji"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "title",
-          "emoji"
-        ],
-        "title": "OrderingItem"
-      },
-      "OrderingQuest": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "topic": {
-            "type": "string",
-            "title": "Topic"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "situation": {
-            "type": "string",
-            "title": "Situation"
-          },
-          "finni_intro": {
-            "type": "string",
-            "title": "Finni Intro"
-          },
-          "reward": {
-            "$ref": "#/components/schemas/QuestReward"
-          },
-          "difficulty": {
-            "type": "integer",
-            "maximum": 3.0,
-            "minimum": 1.0,
-            "title": "Difficulty"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Tags"
-          },
-          "wrap_up": {
-            "type": "string",
-            "title": "Wrap Up",
-            "description": "Короткий вывод после задания, независимо от ответа"
-          },
-          "type": {
-            "type": "string",
-            "const": "ordering",
-            "title": "Type"
-          },
-          "ordering": {
-            "$ref": "#/components/schemas/OrderingTask"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "topic",
-          "title",
-          "situation",
-          "finni_intro",
-          "reward",
-          "difficulty",
-          "wrap_up",
-          "type",
-          "ordering"
-        ],
-        "title": "OrderingQuest"
-      },
-      "OrderingTask": {
-        "properties": {
-          "shuffle": {
-            "type": "boolean",
-            "title": "Shuffle",
-            "default": true
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/OrderingItem"
-            },
-            "type": "array",
-            "minItems": 3,
-            "title": "Items"
-          },
-          "correct_order": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 3,
-            "title": "Correct Order"
-          },
-          "explanation": {
-            "type": "string",
-            "title": "Explanation"
-          },
-          "partial_explanation": {
-            "type": "string",
-            "title": "Partial Explanation"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "items",
-          "correct_order",
-          "explanation",
-          "partial_explanation"
-        ],
-        "title": "OrderingTask"
-      },
       "PeriodRules": {
         "properties": {
-          "periods_per_year": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Periods Per Year"
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "advance": {
+            "type": "string",
+            "const": "manual_button",
+            "title": "Advance"
+          },
+          "skips_real_time": {
+            "type": "boolean",
+            "title": "Skips Real Time"
           },
           "demo_mode_periods": {
             "type": "integer",
             "minimum": 1.0,
             "title": "Demo Mode Periods",
             "description": "ТЗ 2.6: не менее 5 периодов подряд"
-          },
-          "demo_mode_skips_real_time": {
-            "type": "boolean",
-            "title": "Demo Mode Skips Real Time"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "periods_per_year",
-          "demo_mode_periods",
-          "demo_mode_skips_real_time"
+          "title",
+          "advance",
+          "skips_real_time",
+          "demo_mode_periods"
         ],
         "title": "PeriodRules"
-      },
-      "PeriodSummary": {
-        "properties": {
-          "period": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Period"
-          },
-          "income": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Income"
-          },
-          "planned": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Planned"
-          },
-          "actual": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Actual"
-          },
-          "saved": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Saved",
-            "default": 0
-          },
-          "plan_followed": {
-            "type": "boolean",
-            "title": "Plan Followed",
-            "default": false
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "period",
-          "income"
-        ],
-        "title": "PeriodSummary",
-        "description": "Итог периода: план против факта (ТЗ 2.5.5)."
       },
       "PetMood": {
         "properties": {
@@ -2327,6 +1971,83 @@
             "type": "string",
             "title": "Id"
           },
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "phrase": {
+            "type": "string",
+            "title": "Phrase"
+          },
+          "stat": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "min",
+                  "satiety",
+                  "happiness",
+                  "cleanliness"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stat"
+          },
+          "op": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "lte",
+                  "gte"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Op"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "emoji",
+          "phrase",
+          "stat",
+          "op",
+          "value"
+        ],
+        "title": "PetMood",
+        "description": "Настроение. Правила проверяются по порядку, последнее — запасное, без условия.\n\n`stat: min` — самый низкий из трёх показателей."
+      },
+      "PetSkin": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "species": {
+            "type": "string",
+            "title": "Species"
+          },
           "title": {
             "type": "string",
             "title": "Title"
@@ -2335,108 +2056,40 @@
             "type": "string",
             "title": "Emoji"
           },
-          "min_average_stat": {
+          "price": {
             "type": "integer",
-            "maximum": 100.0,
-            "minimum": 0.0,
-            "title": "Min Average Stat"
+            "minimum": 1.0,
+            "title": "Price"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "bg_start": {
+            "type": "string",
+            "pattern": "^#[0-9A-F]{6}$",
+            "title": "Bg Start"
+          },
+          "bg_end": {
+            "type": "string",
+            "pattern": "^#[0-9A-F]{6}$",
+            "title": "Bg End"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "id",
+          "species",
           "title",
           "emoji",
-          "min_average_stat"
+          "price",
+          "description",
+          "bg_start",
+          "bg_end"
         ],
-        "title": "PetMood"
-      },
-      "PetPalette": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "body": {
-            "type": "string",
-            "title": "Body"
-          },
-          "belly": {
-            "type": "string",
-            "title": "Belly"
-          },
-          "accent": {
-            "type": "string",
-            "title": "Accent"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "title",
-          "body",
-          "belly",
-          "accent"
-        ],
-        "title": "PetPalette"
-      },
-      "PetRules": {
-        "properties": {
-          "stats": {
-            "items": {
-              "$ref": "#/components/schemas/PetStat"
-            },
-            "type": "array",
-            "minItems": 3,
-            "title": "Stats"
-          },
-          "stages": {
-            "items": {
-              "$ref": "#/components/schemas/PetStage"
-            },
-            "type": "array",
-            "title": "Stages",
-            "description": "ТЗ 2.6: не менее 3 стадий развития"
-          },
-          "moods": {
-            "items": {
-              "$ref": "#/components/schemas/PetMood"
-            },
-            "type": "array",
-            "minItems": 2,
-            "title": "Moods"
-          },
-          "xp_rules": {
-            "items": {
-              "$ref": "#/components/schemas/XpRule"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Xp Rules"
-          },
-          "purchase_blocks": {
-            "items": {
-              "$ref": "#/components/schemas/PurchaseBlock"
-            },
-            "type": "array",
-            "title": "Purchase Blocks"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "stats",
-          "stages",
-          "moods",
-          "xp_rules"
-        ],
-        "title": "PetRules"
+        "title": "PetSkin",
+        "description": "Образ питомца: покупается навсегда, надевается только на свой вид."
       },
       "PetSpecies": {
         "properties": {
@@ -2451,6 +2104,15 @@
           "emoji": {
             "type": "string",
             "title": "Emoji"
+          },
+          "variants": {
+            "items": {
+              "$ref": "#/components/schemas/PetVariant"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Variants",
+            "description": "Окраски, свои у каждого вида"
           }
         },
         "additionalProperties": false,
@@ -2458,7 +2120,8 @@
         "required": [
           "id",
           "title",
-          "emoji"
+          "emoji",
+          "variants"
         ],
         "title": "PetSpecies"
       },
@@ -2472,15 +2135,14 @@
             "type": "string",
             "title": "Title"
           },
-          "order": {
+          "emoji": {
+            "type": "string",
+            "title": "Emoji"
+          },
+          "min_level": {
             "type": "integer",
             "minimum": 1.0,
-            "title": "Order"
-          },
-          "min_xp": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Min Xp"
+            "title": "Min Level"
           }
         },
         "additionalProperties": false,
@@ -2488,8 +2150,8 @@
         "required": [
           "id",
           "title",
-          "order",
-          "min_xp"
+          "emoji",
+          "min_level"
         ],
         "title": "PetStage"
       },
@@ -2497,6 +2159,11 @@
         "properties": {
           "id": {
             "type": "string",
+            "enum": [
+              "satiety",
+              "happiness",
+              "cleanliness"
+            ],
             "title": "Id"
           },
           "title": {
@@ -2512,10 +2179,10 @@
             "minimum": 1.0,
             "title": "Max"
           },
-          "decay_per_period": {
+          "decay_per_day": {
             "type": "integer",
             "minimum": 0.0,
-            "title": "Decay Per Period"
+            "title": "Decay Per Day"
           },
           "low_threshold": {
             "type": "integer",
@@ -2530,12 +2197,12 @@
           "title",
           "emoji",
           "max",
-          "decay_per_period",
+          "decay_per_day",
           "low_threshold"
         ],
         "title": "PetStat"
       },
-      "PetState-Input": {
+      "PetState": {
         "properties": {
           "name": {
             "type": "string",
@@ -2545,20 +2212,25 @@
           },
           "species_id": {
             "type": "string",
-            "title": "Species Id"
+            "title": "Species Id",
+            "description": "cat | dog | penguin"
           },
-          "palette_id": {
+          "variant_id": {
             "type": "string",
-            "title": "Palette Id"
+            "title": "Variant Id",
+            "description": "Окраска: v1 | v2 | v3"
           },
-          "stage_id": {
-            "type": "string",
-            "title": "Stage Id"
+          "level": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Level"
           },
           "xp": {
             "type": "integer",
+            "maximum": 99.0,
             "minimum": 0.0,
-            "title": "Xp"
+            "title": "Xp",
+            "description": "Опыт внутри текущего уровня"
           },
           "stats": {
             "$ref": "#/components/schemas/PetStatsState"
@@ -2569,8 +2241,8 @@
         "required": [
           "name",
           "species_id",
-          "palette_id",
-          "stage_id",
+          "variant_id",
+          "level",
           "xp",
           "stats"
         ],
@@ -2582,7 +2254,8 @@
             "type": "integer",
             "maximum": 100.0,
             "minimum": 0.0,
-            "title": "Satiety"
+            "title": "Satiety",
+            "description": "В приложении — hunger"
           },
           "happiness": {
             "type": "integer",
@@ -2606,6 +2279,43 @@
         ],
         "title": "PetStatsState"
       },
+      "PetVariant": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "bg_start": {
+            "type": "string",
+            "pattern": "^#[0-9A-F]{6}$",
+            "title": "Bg Start"
+          },
+          "bg_end": {
+            "type": "string",
+            "pattern": "^#[0-9A-F]{6}$",
+            "title": "Bg End"
+          },
+          "accent": {
+            "type": "string",
+            "pattern": "^#[0-9A-F]{6}$",
+            "title": "Accent"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "bg_start",
+          "bg_end",
+          "accent"
+        ],
+        "title": "PetVariant"
+      },
       "PetsFile": {
         "properties": {
           "version": {
@@ -2617,6 +2327,18 @@
             "format": "date",
             "title": "Updated At"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Откуда в приложении взят контент"
+          },
           "species": {
             "items": {
               "$ref": "#/components/schemas/PetSpecies"
@@ -2624,12 +2346,27 @@
             "type": "array",
             "title": "Species"
           },
-          "palettes": {
+          "skins": {
             "items": {
-              "$ref": "#/components/schemas/PetPalette"
+              "$ref": "#/components/schemas/PetSkin"
             },
             "type": "array",
-            "title": "Palettes"
+            "title": "Skins"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PetStage"
+            },
+            "type": "array",
+            "title": "Stages"
+          },
+          "moods": {
+            "items": {
+              "$ref": "#/components/schemas/PetMood"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Moods"
           },
           "name_suggestions": {
             "items": {
@@ -2648,11 +2385,39 @@
           "version",
           "updated_at",
           "species",
-          "palettes",
+          "skins",
+          "stages",
+          "moods",
           "name_suggestions",
           "nickname_rules"
         ],
         "title": "PetsFile"
+      },
+      "PlayerRules": {
+        "properties": {
+          "min_age": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Min Age"
+          },
+          "max_age": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Max Age"
+          },
+          "max_age_label": {
+            "type": "string",
+            "title": "Max Age Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "min_age",
+          "max_age",
+          "max_age_label"
+        ],
+        "title": "PlayerRules"
       },
       "PlayerState": {
         "properties": {
@@ -2661,6 +2426,20 @@
             "maxLength": 15,
             "minLength": 1,
             "title": "Nickname"
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 7.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age",
+            "description": "7, 8, 9 или 10 («10+»); null — старый сейв"
           }
         },
         "additionalProperties": false,
@@ -2672,26 +2451,15 @@
       },
       "ProfileSettings": {
         "properties": {
-          "sound_enabled": {
+          "dark_theme": {
             "type": "boolean",
-            "title": "Sound Enabled",
-            "default": true
-          },
-          "animations_enabled": {
-            "type": "boolean",
-            "title": "Animations Enabled",
-            "default": true
-          },
-          "demo_mode": {
-            "type": "boolean",
-            "title": "Demo Mode",
+            "title": "Dark Theme",
             "default": false
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "title": "ProfileSettings",
-        "description": "Настройки доступности (ТЗ 3.6: звук и анимации можно отключить)."
+        "title": "ProfileSettings"
       },
       "ProgressAck": {
         "properties": {
@@ -2747,7 +2515,7 @@
             "title": "Server Updated At"
           },
           "server_snapshot": {
-            "$ref": "#/components/schemas/ProgressSnapshot-Input"
+            "$ref": "#/components/schemas/ProgressSnapshot"
           }
         },
         "type": "object",
@@ -2760,12 +2528,12 @@
         "title": "ProgressConflict",
         "description": "Ответ 409: на сервере снимок новее. Клиент решает — слить или перезаписать\n(`?force=true`), прогресс при этом не теряется ни с одной стороны."
       },
-      "ProgressSnapshot-Input": {
+      "ProgressSnapshot": {
         "properties": {
           "schema_version": {
             "type": "string",
             "title": "Schema Version",
-            "default": "1.0"
+            "default": "2.0"
           },
           "revision": {
             "type": "integer",
@@ -2779,406 +2547,71 @@
             "title": "Updated At",
             "description": "Время последнего изменения на устройстве"
           },
-          "current_period": {
+          "day": {
             "type": "integer",
             "minimum": 1.0,
-            "title": "Current Period"
+            "title": "Day",
+            "description": "Текущий период («День N»)"
           },
           "player": {
             "$ref": "#/components/schemas/PlayerState"
           },
           "pet": {
-            "$ref": "#/components/schemas/PetState-Input"
+            "$ref": "#/components/schemas/PetState"
           },
           "wallet": {
             "$ref": "#/components/schemas/WalletState"
           },
-          "education": {
-            "$ref": "#/components/schemas/EducationState"
-          },
-          "settings": {
-            "$ref": "#/components/schemas/ProfileSettings"
-          },
           "goal": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/GoalProgressState"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "plan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BudgetPlanState"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/GoalState"
           },
           "inventory": {
             "items": {
               "$ref": "#/components/schemas/InventoryEntry"
             },
             "type": "array",
-            "title": "Inventory"
+            "title": "Inventory",
+            "description": "Рюкзачок"
           },
-          "purchases": {
-            "items": {
-              "$ref": "#/components/schemas/PurchaseRecord"
-            },
-            "type": "array",
-            "title": "Purchases"
+          "lessons": {
+            "$ref": "#/components/schemas/LessonsState"
           },
-          "quests": {
-            "items": {
-              "$ref": "#/components/schemas/QuestRecord"
-            },
-            "type": "array",
-            "title": "Quests"
+          "skins": {
+            "$ref": "#/components/schemas/SkinsState"
           },
-          "periods": {
-            "items": {
-              "$ref": "#/components/schemas/PeriodSummary"
-            },
-            "type": "array",
-            "title": "Periods"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "revision",
-          "updated_at",
-          "current_period",
-          "player",
-          "pet",
-          "wallet",
-          "education"
-        ],
-        "title": "ProgressSnapshot",
-        "description": "Полный снимок локального профиля."
-      },
-      "ProgressSnapshot-Output": {
-        "properties": {
-          "schema_version": {
-            "type": "string",
-            "title": "Schema Version",
-            "default": "1.0"
+          "streak": {
+            "$ref": "#/components/schemas/StreakState"
           },
-          "revision": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Revision",
-            "description": "Счётчик версий на клиенте: растёт при каждой выгрузке"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At",
-            "description": "Время последнего изменения на устройстве"
-          },
-          "current_period": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Current Period"
-          },
-          "player": {
-            "$ref": "#/components/schemas/PlayerState"
-          },
-          "pet": {
-            "$ref": "#/components/schemas/app__schemas__progress__PetState"
-          },
-          "wallet": {
-            "$ref": "#/components/schemas/WalletState"
-          },
-          "education": {
-            "$ref": "#/components/schemas/EducationState"
-          },
-          "settings": {
-            "$ref": "#/components/schemas/ProfileSettings"
-          },
-          "goal": {
+          "last_bonus_date": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/GoalProgressState"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "plan": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BudgetPlanState"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "inventory": {
-            "items": {
-              "$ref": "#/components/schemas/InventoryEntry"
-            },
-            "type": "array",
-            "title": "Inventory"
-          },
-          "purchases": {
-            "items": {
-              "$ref": "#/components/schemas/PurchaseRecord"
-            },
-            "type": "array",
-            "title": "Purchases"
-          },
-          "quests": {
-            "items": {
-              "$ref": "#/components/schemas/QuestRecord"
-            },
-            "type": "array",
-            "title": "Quests"
-          },
-          "periods": {
-            "items": {
-              "$ref": "#/components/schemas/PeriodSummary"
-            },
-            "type": "array",
-            "title": "Periods"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "revision",
-          "updated_at",
-          "current_period",
-          "player",
-          "pet",
-          "wallet",
-          "education"
-        ],
-        "title": "ProgressSnapshot",
-        "description": "Полный снимок локального профиля."
-      },
-      "PurchaseBlock": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "when_stat": {
-            "type": "string",
-            "title": "When Stat"
-          },
-          "lte": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Lte"
-          },
-          "blocked_categories": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Blocked Categories"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "when_stat",
-          "lte",
-          "blocked_categories",
-          "message"
-        ],
-        "title": "PurchaseBlock"
-      },
-      "PurchaseRecord": {
-        "properties": {
-          "item_id": {
-            "type": "string",
-            "title": "Item Id"
-          },
-          "price": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Price"
-          },
-          "quantity": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Quantity",
-            "default": 1
-          },
-          "period": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Period"
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "item_id",
-          "price",
-          "period",
-          "at"
-        ],
-        "title": "PurchaseRecord"
-      },
-      "QuestEffects": {
-        "properties": {
-          "coins": {
-            "type": "integer",
-            "title": "Coins",
-            "default": 0
-          },
-          "satiety": {
-            "type": "integer",
-            "title": "Satiety",
-            "default": 0
-          },
-          "happiness": {
-            "type": "integer",
-            "title": "Happiness",
-            "default": 0
-          },
-          "cleanliness": {
-            "type": "integer",
-            "title": "Cleanliness",
-            "default": 0
-          },
-          "savings": {
-            "type": "integer",
-            "title": "Savings",
-            "default": 0
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "QuestEffects"
-      },
-      "QuestRecord": {
-        "properties": {
-          "quest_id": {
-            "type": "string",
-            "title": "Quest Id"
-          },
-          "option_id": {
-            "anyOf": [
-              {
-                "type": "string"
+                "type": "string",
+                "format": "date"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Option Id"
+            "title": "Last Bonus Date",
+            "description": "Когда выдан бонус за вход"
           },
-          "result": {
-            "type": "string",
-            "pattern": "^(correct|partly|incorrect)$",
-            "title": "Result"
-          },
-          "earned_coins": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Earned Coins",
-            "default": 0
-          },
-          "earned_xp": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Earned Xp",
-            "default": 0
-          },
-          "period": {
-            "type": "integer",
-            "minimum": 1.0,
-            "title": "Period"
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "At"
+          "settings": {
+            "$ref": "#/components/schemas/ProfileSettings"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "quest_id",
-          "result",
-          "period",
-          "at"
+          "revision",
+          "updated_at",
+          "day",
+          "player",
+          "pet",
+          "wallet",
+          "goal"
         ],
-        "title": "QuestRecord"
-      },
-      "QuestReward": {
-        "properties": {
-          "coins": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Coins",
-            "description": "ТЗ 2.5.8: задания начисляют игровую валюту"
-          },
-          "xp": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Xp"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "coins",
-          "xp"
-        ],
-        "title": "QuestReward"
-      },
-      "QuestTopic": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "emoji": {
-            "type": "string",
-            "title": "Emoji"
-          },
-          "skill": {
-            "type": "string",
-            "title": "Skill",
-            "description": "Образовательный результат темы"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "title",
-          "emoji",
-          "skill"
-        ],
-        "title": "QuestTopic"
+        "title": "ProgressSnapshot",
+        "description": "Полный снимок локального профиля."
       },
       "QuestsFile": {
         "properties": {
@@ -3191,34 +2624,31 @@
             "format": "date",
             "title": "Updated At"
           },
-          "topics": {
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Откуда в приложении взят контент"
+          },
+          "tracks": {
             "items": {
-              "$ref": "#/components/schemas/QuestTopic"
+              "$ref": "#/components/schemas/LessonTrack"
             },
             "type": "array",
-            "title": "Topics"
+            "title": "Tracks"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/LessonRules"
           },
           "items": {
             "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/ChoiceQuest"
-                },
-                {
-                  "$ref": "#/components/schemas/AllocationQuest"
-                },
-                {
-                  "$ref": "#/components/schemas/OrderingQuest"
-                }
-              ],
-              "discriminator": {
-                "propertyName": "type",
-                "mapping": {
-                  "allocation": "#/components/schemas/AllocationQuest",
-                  "choice": "#/components/schemas/ChoiceQuest",
-                  "ordering": "#/components/schemas/OrderingQuest"
-                }
-              }
+              "$ref": "#/components/schemas/Lesson"
             },
             "type": "array",
             "title": "Items"
@@ -3229,33 +2659,121 @@
         "required": [
           "version",
           "updated_at",
-          "topics",
+          "tracks",
+          "rules",
           "items"
         ],
         "title": "QuestsFile"
       },
-      "StatEffects": {
+      "SavingsRules": {
         "properties": {
-          "satiety": {
-            "type": "integer",
-            "title": "Satiety",
-            "default": 0
+          "quick_amounts": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Quick Amounts"
           },
-          "happiness": {
+          "plan_quick_amount": {
             "type": "integer",
-            "title": "Happiness",
-            "default": 0
+            "minimum": 1.0,
+            "title": "Plan Quick Amount"
           },
-          "cleanliness": {
+          "withdraw_amount": {
             "type": "integer",
-            "title": "Cleanliness",
-            "default": 0
+            "minimum": 1.0,
+            "title": "Withdraw Amount"
+          },
+          "withdraw_requires_confirmation": {
+            "type": "boolean",
+            "title": "Withdraw Requires Confirmation"
+          },
+          "suggested_per_day": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Suggested Per Day"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "title": "StatEffects",
-        "description": "Влияние покупки на показатели питомца (ТЗ 2.5.6)."
+        "required": [
+          "quick_amounts",
+          "plan_quick_amount",
+          "withdraw_amount",
+          "withdraw_requires_confirmation",
+          "suggested_per_day"
+        ],
+        "title": "SavingsRules"
+      },
+      "SkinsState": {
+        "properties": {
+          "owned": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Owned",
+            "description": "Купленные образы (навсегда)"
+          },
+          "equipped": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipped",
+            "description": "Надетый образ; null — обычный"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SkinsState"
+      },
+      "StartState": {
+        "properties": {
+          "balance": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Balance"
+          },
+          "inventory": {
+            "items": {
+              "$ref": "#/components/schemas/InventoryStart"
+            },
+            "type": "array",
+            "title": "Inventory"
+          },
+          "pet_level": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Pet Level"
+          },
+          "pet_stats": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Pet Stats"
+          },
+          "day": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Day"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "balance",
+          "inventory",
+          "pet_level",
+          "pet_stats",
+          "day"
+        ],
+        "title": "StartState"
       },
       "StoredProgress": {
         "properties": {
@@ -3274,7 +2792,7 @@
             "title": "Server Updated At"
           },
           "snapshot": {
-            "$ref": "#/components/schemas/ProgressSnapshot-Output"
+            "$ref": "#/components/schemas/ProgressSnapshot"
           }
         },
         "type": "object",
@@ -3285,6 +2803,77 @@
           "snapshot"
         ],
         "title": "StoredProgress"
+      },
+      "StreakRules": {
+        "properties": {
+          "counts": {
+            "type": "string",
+            "title": "Counts"
+          },
+          "resets_after_missed_day": {
+            "type": "boolean",
+            "title": "Resets After Missed Day"
+          },
+          "coins_bonus": {
+            "type": "boolean",
+            "title": "Coins Bonus"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "counts",
+          "resets_after_missed_day",
+          "coins_bonus"
+        ],
+        "title": "StreakRules"
+      },
+      "StreakState": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Days",
+            "description": "Огонёк: дней подряд с действием",
+            "default": 0
+          },
+          "last_action_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Action Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StreakState"
+      },
+      "TrackSection": {
+        "properties": {
+          "grade": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Grade"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "grade",
+          "title"
+        ],
+        "title": "TrackSection"
       },
       "ValidationError": {
         "properties": {
@@ -3324,20 +2913,14 @@
           "balance": {
             "type": "integer",
             "minimum": 0.0,
-            "title": "Balance"
+            "title": "Balance",
+            "description": "Монетки в кошельке"
           },
           "savings": {
             "type": "integer",
             "minimum": 0.0,
             "title": "Savings",
-            "description": "Накопления по текущей цели"
-          },
-          "deposit": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Deposit",
-            "description": "Сумма на вкладе",
-            "default": 0
+            "description": "Монетки в копилке"
           }
         },
         "additionalProperties": false,
@@ -3373,75 +2956,6 @@
           "explain"
         ],
         "title": "XpRule"
-      },
-      "app__main__PetState": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "stage": {
-            "type": "integer",
-            "title": "Stage"
-          },
-          "balance": {
-            "type": "number",
-            "title": "Balance"
-          },
-          "goal": {
-            "type": "number",
-            "title": "Goal"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name",
-          "stage",
-          "balance",
-          "goal"
-        ],
-        "title": "PetState"
-      },
-      "app__schemas__progress__PetState": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 15,
-            "minLength": 1,
-            "title": "Name"
-          },
-          "species_id": {
-            "type": "string",
-            "title": "Species Id"
-          },
-          "palette_id": {
-            "type": "string",
-            "title": "Palette Id"
-          },
-          "stage_id": {
-            "type": "string",
-            "title": "Stage Id"
-          },
-          "xp": {
-            "type": "integer",
-            "minimum": 0.0,
-            "title": "Xp"
-          },
-          "stats": {
-            "$ref": "#/components/schemas/PetStatsState"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "species_id",
-          "palette_id",
-          "stage_id",
-          "xp",
-          "stats"
-        ],
-        "title": "PetState"
       }
     }
   },

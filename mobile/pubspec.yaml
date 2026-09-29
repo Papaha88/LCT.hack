@@ -20,6 +20,18 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/finny.jpg
+    # Анимированные модели для PetView: ролики, постеры, pet.json.
+    - assets/pets/cat_ginger_small/
+    - assets/pets/cat_ginger_medium/
+    - assets/pets/cat_ginger_large/
+    - assets/pets/cat_gray_small/
+    - assets/pets/cat_gray_medium/
+    - assets/pets/cat_gray_large/
+    - assets/pets/cat_black_small/
+    - assets/pets/cat_black_medium/
+    - assets/pets/cat_black_large/
+    # Аксессуары поверх питомца (PNG), см. lib/pet/pet_view.dart.
+    - assets/accessories/
     # Анимированные модели питомца (webp). Раскладка — assets/pets/README.md.
     - assets/pets/cat/v1/
     - assets/pets/cat/v2/

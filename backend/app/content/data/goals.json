@@ -1,50 +1,70 @@
 {
-  "version": "1.0.0",
-  "updated_at": "2026-09-21",
+  "version": "2.0.0",
+  "updated_at": "2026-09-29",
+  "source": "mobile/lib/data/goals_data.dart",
   "items": [
     {
       "id": "goal_pet_house",
       "title": "Домик для питомца",
-      "price": 150,
       "emoji": "🏠",
-      "description": "Уютный домик, где питомец прячется от дождя.",
-      "suggested_periods": 3,
-      "suggested_per_period": 50,
-      "reward": { "xp": 30, "coins": 0, "unlocks_item_id": null },
-      "finni_line": "Домик — отличная первая мечта: копить недолго, а радости много!"
+      "price": 150,
+      "hint": "Первая мечта: по 50 монет — и через 3 дня домик твой!"
     },
     {
       "id": "goal_scooter",
       "title": "Самокат",
-      "price": 200,
       "emoji": "🛴",
-      "description": "Быстрый самокат для прогулок с питомцем.",
-      "suggested_periods": 4,
-      "suggested_per_period": 50,
-      "reward": { "xp": 40, "coins": 0, "unlocks_item_id": null },
-      "finni_line": "Если откладывать по 50 монеток, самокат будет твоим через 4 периода."
+      "price": 200,
+      "hint": "По 50 монет за день — самокат через 4 дня."
     },
     {
       "id": "goal_bike",
       "title": "Велосипед",
-      "price": 300,
       "emoji": "🚲",
-      "description": "Большая мечта, на которую нужно копить несколько периодов.",
-      "suggested_periods": 6,
-      "suggested_per_period": 50,
-      "reward": { "xp": 60, "coins": 0, "unlocks_item_id": "decor_garland" },
-      "finni_line": "Большая цель! Главное — откладывать понемногу, но каждый период."
+      "price": 300,
+      "hint": "Большая цель! Откладывай понемногу, но каждый день."
     },
     {
       "id": "goal_aquapark",
       "title": "Поход в аквапарк",
-      "price": 500,
       "emoji": "🎢",
-      "description": "Самая дальняя мечта: понадобится терпение и вклад.",
-      "suggested_periods": 10,
-      "suggested_per_period": 50,
-      "reward": { "xp": 100, "coins": 0, "unlocks_item_id": null },
-      "finni_line": "Положи часть монеток на вклад — и цель приблизится быстрее."
+      "price": 500,
+      "hint": "Самая дальняя мечта — понадобится терпение."
+    },
+    {
+      "id": "goal_railway",
+      "title": "Железная дорога",
+      "emoji": "🚂",
+      "price": 250,
+      "hint": "Монетка к монетке — как вагончик к вагончику."
+    },
+    {
+      "id": "goal_gift_mom",
+      "title": "Подарок маме",
+      "emoji": "🎁",
+      "price": 120,
+      "hint": "Копить на подарок близким — особенно приятно!"
     }
-  ]
+  ],
+  "default_goal_id": "goal_bike",
+  "custom_goal": {
+    "allowed": true,
+    "min_target": 50,
+    "max_target": 5000,
+    "title_max_length": 24,
+    "emoji_choices": [
+      "🎯",
+      "🚲",
+      "🛴",
+      "🎮",
+      "🧸",
+      "📚",
+      "⚽",
+      "🎨",
+      "🎧",
+      "🎁",
+      "🐠",
+      "🏕️"
+    ]
+  }
 }
