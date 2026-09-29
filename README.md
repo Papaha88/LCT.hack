@@ -112,6 +112,8 @@ flutter test
 
 ## Команда LitEnergy
 
-- Максим Силин ([@SilMax-Lang](https://github.com/SilMax-Lang)) — тимлид
-- [@dancheck557](https://github.com/dancheck557) — мобильное приложение
-- [@kslavgorodskii-web](https://github.com/kslavgorodskii-web) — сервер и мобильное приложение
+- Максим Силин ([@SilMax-Lang](https://github.com/SilMax-Lang)) — DevOps, Designer
+- Даниил Жердецких [@dancheck557](https://github.com/dancheck557) — Mobile
+- Мальцев Арсений — [@PaPaHa88](https://github.com/PaPaHa88) Product manager
+- Максим Древаль — Designer
+- Ксения Садилкина — Analyst
