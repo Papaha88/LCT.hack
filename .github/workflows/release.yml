@@ -1,0 +1,54 @@
+name: Release APK
+
+# Тег v* (например v0.2.0) — собрать release APK и выложить его
+# в GitHub Releases. Можно запустить и вручную с вкладки Actions.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег релиза, например v0.2.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Tests
+        run: flutter test
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk "finny-$TAG.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "finny-$TAG.apk" --clobber
+          else
+            gh release create "$TAG" "finny-$TAG.apk" \
+              --target "$GITHUB_SHA" \
+              --title "Финни $TAG" \
+              --notes "Android APK для установки: скачайте finny-$TAG.apk, разрешите установку из неизвестных источников и откройте файл. Приложение работает офлайн."
+          fi
