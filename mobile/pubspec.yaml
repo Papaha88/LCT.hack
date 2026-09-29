@@ -30,12 +30,12 @@ flutter:
     - assets/pets/cat_black_small/
     - assets/pets/cat_black_medium/
     - assets/pets/cat_black_large/
-    - assets/pets/dog_brown_small/
-    - assets/pets/dog_brown_medium/
-    - assets/pets/dog_brown_large/
     - assets/pets/dog_ginger_small/
     - assets/pets/dog_ginger_medium/
     - assets/pets/dog_ginger_large/
+    - assets/pets/dog_gray_small/
+    - assets/pets/dog_gray_medium/
+    - assets/pets/dog_gray_large/
     - assets/pets/dog_black_small/
     - assets/pets/dog_black_medium/
     - assets/pets/dog_black_large/
