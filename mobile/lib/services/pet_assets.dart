@@ -68,6 +68,27 @@ class PetAssets {
   static String folder(PetType type, String look) =>
       'assets/pets/${type.name}/$look';
 
+  static const _colorNames = {
+    PetVariant.v1: 'ginger',
+    PetVariant.v2: 'gray',
+    PetVariant.v3: 'black',
+  };
+
+  static const _ageNames = {
+    'baby': 'small',
+    'teen': 'medium',
+    'adult': 'large',
+  };
+
+  /// Папка анимированной модели для `PetView`:
+  /// `assets/pets/<вид>_<окраска>_<возраст>/` (ролики, постеры, pet.json).
+  /// null — модели для этой окраски и этапа ещё нет.
+  static String? modelFolder(PetType type, PetVariant variant, int level) {
+    final dir = 'assets/pets/${type.name}_${_colorNames[variant]}_'
+        '${_ageNames[stageKey(level)]}';
+    return _available.contains('$dir/pet.json') ? dir : null;
+  }
+
   /// Путь к файлу модели или null, если моделей для образа ещё нет.
   static String? resolve({
     required PetType type,

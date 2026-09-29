@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/skins_data.dart';
 import '../models/pet.dart';
+import '../pet/pet_view.dart';
 import '../services/pet_assets.dart';
 
 /// Питомец «вживую»: модель + эмоции.
@@ -66,6 +67,21 @@ class _PetModelState extends State<PetModel> with TickerProviderStateMixin {
 
   PetAnim? _reacting;
 
+  /// Ролики анимированной модели (если она есть для этой окраски).
+  final PetController _video = PetController();
+
+  /// Голод и грусть — ролик hungry по кругу, иначе idle.
+  void _syncLoop() {
+    final low = widget.mood == PetMood.sad || widget.mood == PetMood.hungry;
+    _video.loop(low ? 'hungry' : 'idle');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncLoop();
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -81,14 +97,20 @@ class _PetModelState extends State<PetModel> with TickerProviderStateMixin {
   @override
   void didUpdateWidget(covariant PetModel old) {
     super.didUpdateWidget(old);
+    if (widget.mood != old.mood) _syncLoop();
     if (widget.reaction > old.reaction) {
       _reacting = widget.reactionAnim;
       _react.forward(from: 0);
+      if (widget.reactionAnim == PetAnim.happy ||
+          widget.reactionAnim == PetAnim.eat) {
+        _video.playOnce('happy', immediate: true);
+      }
     }
   }
 
   @override
   void dispose() {
+    _video.dispose();
     _idle.dispose();
     _react.dispose();
     super.dispose();
@@ -117,7 +139,11 @@ class _PetModelState extends State<PetModel> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final s = widget.size;
-    final sad = _anim == PetAnim.sad;
+    final video = widget.skin == null
+        ? PetAssets.modelFolder(widget.type, widget.variant, widget.level)
+        : null;
+    // Живой ролик сам дышит и грустит — кодом добавляем только прыжок.
+    final sad = video == null && _anim == PetAnim.sad;
     final path = PetAssets.resolve(
       type: widget.type,
       look: widget.skin?.id ?? widget.variant.name,
@@ -125,7 +151,17 @@ class _PetModelState extends State<PetModel> with TickerProviderStateMixin {
       level: widget.level,
     );
 
-    final body = path != null
+    final body = video != null
+        ? SizedBox(
+            width: s,
+            height: s,
+            child: PetView(
+              basePath: video,
+              controller: _video,
+              placeholder: _Placeholder(widget: widget),
+            ),
+          )
+        : path != null
         ? Image.asset(
             path,
             width: s,
@@ -143,7 +179,8 @@ class _PetModelState extends State<PetModel> with TickerProviderStateMixin {
         animation: Listenable.merge([_idle, _react]),
         child: body,
         builder: (context, child) {
-          final breathe = Curves.easeInOut.transform(_idle.value);
+          final breathe =
+              video != null ? 0.0 : Curves.easeInOut.transform(_idle.value);
           final r = _react.value;
           final active = _react.isAnimating;
           // Прыжок в первой трети: вверх и обратно, при посадке — «сплющился».
