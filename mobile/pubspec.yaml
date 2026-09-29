@@ -30,6 +30,15 @@ flutter:
     - assets/pets/cat_black_small/
     - assets/pets/cat_black_medium/
     - assets/pets/cat_black_large/
+    - assets/pets/dog_brown_small/
+    - assets/pets/dog_brown_medium/
+    - assets/pets/dog_brown_large/
+    - assets/pets/dog_ginger_small/
+    - assets/pets/dog_ginger_medium/
+    - assets/pets/dog_ginger_large/
+    - assets/pets/dog_black_small/
+    - assets/pets/dog_black_medium/
+    - assets/pets/dog_black_large/
     # Аксессуары поверх питомца (PNG), см. lib/pet/pet_view.dart.
     - assets/accessories/
     # Анимированные модели питомца (webp). Раскладка — assets/pets/README.md.

@@ -68,10 +68,19 @@ class PetAssets {
   static String folder(PetType type, String look) =>
       'assets/pets/${type.name}/$look';
 
+  /// Окраска в имени папки модели — своя у каждого вида
+  /// (порядок как в PetLook: у собаки v1 «Шоколад», v2 «Карамель»).
   static const _colorNames = {
-    PetVariant.v1: 'ginger',
-    PetVariant.v2: 'gray',
-    PetVariant.v3: 'black',
+    PetType.cat: {
+      PetVariant.v1: 'ginger',
+      PetVariant.v2: 'gray',
+      PetVariant.v3: 'black',
+    },
+    PetType.dog: {
+      PetVariant.v1: 'brown',
+      PetVariant.v2: 'ginger',
+      PetVariant.v3: 'black',
+    },
   };
 
   static const _ageNames = {
@@ -84,7 +93,9 @@ class PetAssets {
   /// `assets/pets/<вид>_<окраска>_<возраст>/` (ролики, постеры, pet.json).
   /// null — модели для этой окраски и этапа ещё нет.
   static String? modelFolder(PetType type, PetVariant variant, int level) {
-    final dir = 'assets/pets/${type.name}_${_colorNames[variant]}_'
+    final color = _colorNames[type]?[variant];
+    if (color == null) return null;
+    final dir = 'assets/pets/${type.name}_${color}_'
         '${_ageNames[stageKey(level)]}';
     return _available.contains('$dir/pet.json') ? dir : null;
   }

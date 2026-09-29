@@ -254,17 +254,22 @@ class _PetViewState extends State<PetView> with SingleTickerProviderStateMixin {
 
   PetClip? _clip(String? state) => state == null ? null : _info?.clips[state];
 
+  /// Ролик, который реально сыграет: если [state] у питомца нет
+  /// (например, hungry у взрослой собаки) — idle.
+  String _playable(String state) =>
+      _clip(state) != null ? state : widget.controller.idleState;
+
   void _onWanted() {
     final c = widget.controller;
-    if (c.wanted == _state) return;
+    if (_playable(c.wanted) == _state) return;
     if (c.immediate || _codec == null || _calm) _switchTo(c.wanted);
     // Иначе переключимся в ближайшей точке склейки (_onTick).
   }
 
   Future<void> _switchTo(String state) async {
-    final clip = _clip(state) ?? _clip(widget.controller.idleState);
+    final name = _playable(state);
+    final clip = _clip(name);
     if (clip == null) return;
-    final name = _clip(state) != null ? state : widget.controller.idleState;
     final gen = _generation;
     _state = name;
     _frame = 0;
@@ -326,12 +331,13 @@ class _PetViewState extends State<PetView> with SingleTickerProviderStateMixin {
     final c = widget.controller;
 
     // Разовый ролик доиграл — назад к циклу.
-    if (wrapped && _state != c.loopState && _state == c.wanted) {
+    final want = _playable(c.wanted);
+    if (wrapped && _state != _playable(c.loopState) && _state == want) {
       c._finishOnce();
       return; // _onWanted уже переключил или переключит на склейке
     }
     final nextFrame = wrapped ? 0 : next;
-    if (c.wanted != _state && (wrapped || clip.cuts.contains(nextFrame))) {
+    if (want != _state && (wrapped || clip.cuts.contains(nextFrame))) {
       _switchTo(c.wanted);
       return;
     }
